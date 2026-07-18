@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaikoNavigation - 太鼓达人导航</title>
+    <style>
+        :root {
+            --gold: #cc9c56;
+            --black: #000000;
+            --white: #ffffff;
+            --plate-width: 120px;
+            --plate-height: 252px;
+            --sprite-bg-width: 720px;
+            --sprite-bg-height: 252px;
+            --icon-diameter: 57px;
+            --icon-left: 31.5px;
+            --icon-top: 27px;
+            --rope-width: 6px;
+            --rope-height: 50px;
+            --thin-black-height: 3px;
+            --gold-block-height: 10px;
+            --gold-title-height: 52px;
+            --gold-name-height: 30px;
+            --columns: 12;
+            --gap-h: 14px;
+            --content-max-width: 1680px;
+            --bg-image: url('img/background.png');
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: #1a1a0f;
+            background-image: var(--bg-image);
+            background-size: cover;
+            background-position: center top;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding: 16px 0 30px;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.22);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: var(--content-max-width);
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header { width: 100%; display: flex; flex-direction: column; align-items: stretch; flex-shrink: 0; }
+
+        .gold-bar {
+            background: var(--gold);
+            flex-shrink: 0;
+            opacity: 0.92;
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+        }
+        .gold-bar.thin { height: var(--gold-block-height); }
+        .gold-bar.title-bar {
+            height: var(--gold-title-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+            user-select: none;
+        }
+
+        .content-area { width: 100%; display: flex; flex-direction: column; align-items: stretch; flex-shrink: 0; }
+        .row-group { width: 100%; display: flex; flex-direction: column; align-items: stretch; }
+
+        .black-line {
+            height: var(--thin-black-height);
+            background: var(--black);
+            flex-shrink: 0;
+            opacity: 0.9;
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+        }
+
+        .plates-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-start;
+            gap: var(--gap-h);
+            flex-wrap: nowrap;
+            width: 100%;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .plate-unit { display: flex; flex-direction: column; align-items: center; width: var(--plate-width); flex-shrink: 0; }
+
+        .rope {
+            width: var(--rope-width);
+            height: var(--rope-height);
+            background: var(--black);
+            flex-shrink: 0;
+            opacity: 0.9;
+            margin: 0 auto;
+            border-radius: 2px 2px 0 0;
+        }
+
+        .plate {
+            width: var(--plate-width);
+            height: var(--plate-height);
+            background-image: url('img/MiniPlate.png');
+            background-size: var(--sprite-bg-width) var(--sprite-bg-height);
+            background-repeat: no-repeat;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.22s ease, filter 0.22s ease;
+            filter: drop-shadow(3px 4px 7px rgba(0,0,0,0.5));
+            flex-shrink: 0;
+            z-index: 1;
+        }
+
+        .plate:hover {
+            transform: translateY(-6px);
+            filter: drop-shadow(4px 8px 16px rgba(0,0,0,0.6)) brightness(1.07);
+            z-index: 10;
+        }
+        .plate:active { transform: translateY(-2px); transition: transform 0.06s ease; }
+
+        .plate.style-1 { background-position: 0 0; }
+        .plate.style-2 { background-position: calc(-1 * var(--plate-width)) 0; }
+        .plate.style-3 { background-position: calc(-2 * var(--plate-width)) 0; }
+        .plate.style-4 { background-position: calc(-3 * var(--plate-width)) 0; }
+        .plate.style-5 { background-position: calc(-4 * var(--plate-width)) 0; }
+        .plate.style-6 { background-position: calc(-5 * var(--plate-width)) 0; }
+
+        .plate.empty-plate {
+            cursor: default;
+            opacity: 0.5;
+            filter: drop-shadow(2px 3px 5px rgba(0,0,0,0.3)) grayscale(10%);
+        }
+        .plate.empty-plate:hover {
+            transform: none;
+            filter: drop-shadow(2px 3px 5px rgba(0,0,0,0.3)) grayscale(10%);
+            cursor: default;
+        }
+
+        .plate .icon-circle {
+            position: absolute;
+            width: var(--icon-diameter);
+            height: var(--icon-diameter);
+            border-radius: 50%;
+            overflow: hidden;
+            left: var(--icon-left);
+            top: var(--icon-top);
+            background: rgba(0,0,0,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            border: 2px solid rgba(255,255,255,0.22);
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.25);
+        }
+
+        .plate .icon-circle img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .plate.empty-plate .icon-circle { display: none; }
+
+        .gold-name-row {
+            background: var(--gold);
+            opacity: 0.92;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: var(--gap-h);
+            flex-wrap: nowrap;
+            height: var(--gold-name-height);
+            flex-shrink: 0;
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+        }
+
+        .name-slot {
+            width: var(--plate-width);
+            text-align: center;
+            flex-shrink: 0;
+            color: var(--white);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 3px;
+            user-select: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.45);
+            transition: color 0.2s ease;
+            cursor: default;
+        }
+
+        .name-slot.has-link { cursor: pointer; }
+        .name-slot.has-link:hover {
+            color: #fffef0;
+            text-shadow: 1px 1px 6px rgba(255,255,255,0.5);
+        }
+        .name-slot.empty-name { opacity: 0.4; cursor: default; }
+
+        .footer-gold {
+            height: var(--gold-block-height);
+            background: var(--gold);
+            opacity: 0.92;
+            flex-shrink: 0;
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --plate-width: 68px;
+                --plate-height: 143px;
+                --sprite-bg-width: 408px;
+                --sprite-bg-height: 143px;
+                --icon-diameter: 32px;
+                --icon-left: 18px;
+                --icon-top: 14.5px;
+                --rope-width: 4px;
+                --rope-height: 38px;
+                --thin-black-height: 2.5px;
+                --gold-block-height: 8px;
+                --gold-title-height: 42px;
+                --gold-name-height: 24px;
+                --columns: 5;
+                --gap-h: 7px;
+                --content-max-width: 420px;
+                --bg-image: url('img/background.jpg');
+            }
+            body { padding: 8px 0 16px; }
+            .main-container { padding: 0 6px; }
+            .gold-bar.title-bar { font-size: 1.3rem; letter-spacing: 0.06em; }
+            .plate { filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.5)); }
+            .plate:hover {
+                transform: translateY(-4px);
+                filter: drop-shadow(3px 6px 10px rgba(0,0,0,0.55)) brightness(1.05);
+            }
+            .plate .icon-circle { border: 1.5px solid rgba(255,255,255,0.2); box-shadow: inset 0 0 5px rgba(0,0,0,0.25); }
+            .plate.empty-plate { opacity: 0.45; }
+            .name-slot { font-size: 0.6rem; letter-spacing: 0.02em; }
+            .rope { border-radius: 1.5px 1.5px 0 0; }
+            .content-area {
+                max-height: 78vh;
+                overflow-y: auto;
+                overflow-x: visible;
+                padding-bottom: 4px;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(204,156,86,0.5) transparent;
+                -webkit-overflow-scrolling: touch;
+            }
+            .content-area::-webkit-scrollbar { width: 4px; }
+            .content-area::-webkit-scrollbar-track { background: transparent; }
+            .content-area::-webkit-scrollbar-thumb { background: rgba(204,156,86,0.45); border-radius: 3px; }
+        }
+
+        @media (max-width: 380px) {
+            :root {
+                --plate-width: 56px;
+                --plate-height: 118px;
+                --sprite-bg-width: 336px;
+                --sprite-bg-height: 118px;
+                --icon-diameter: 26px;
+                --icon-left: 15px;
+                --icon-top: 12px;
+                --rope-width: 3.5px;
+                --rope-height: 32px;
+                --gold-title-height: 36px;
+                --gold-name-height: 20px;
+                --gap-h: 4px;
+            }
+            .name-slot { font-size: 0.5rem; }
+            .gold-bar.title-bar { font-size: 1.05rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <header class="header">
+            <div class="gold-bar thin"></div>
+            <div class="gold-bar title-bar">TaikoNavigation</div>
+            <div class="gold-bar thin"></div>
+        </header>
+        <div class="content-area" id="contentArea"></div>
+        <div class="footer-gold"></div>
+    </div>
+
+    <script>
+        (function() {
+            const contentArea = document.getElementById('contentArea');
+
+            // ---------- 从 lnk.csv 读取数据 ----------
+            function parseTSV(text) {
+                const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+                if (lines.length === 0) return [];
+
+                // 判断第一行是否为表头：第二列若以 http 开头则认为不是表头
+                const firstCols = lines[0].split('\t');
+                const skipHeader = firstCols.length >= 2 && !/^https?:\/\//i.test(firstCols[1].trim());
+                const dataLines = skipHeader ? lines.slice(1) : lines;
+
+                const result = [];
+                for (const line of dataLines) {
+                    const cols = line.split('\t');
+                    if (cols.length < 5) continue;
+                    const name = cols[0].trim();
+                    const url = cols[1].trim();
+                    const desc = cols[2] ? cols[2].trim() : '';
+                    const icon = cols[3].trim();
+                    const style = parseInt(cols[4].trim(), 10) || 1;
+                    result.push({ name, url, desc, icon, style });
+                }
+                return result;
+            }
+
+            function loadAndRender() {
+                fetch('lnk.csv')
+                    .then(response => {
+                        if (!response.ok) throw new Error('无法加载 lnk.csv');
+                        return response.text();
+                    })
+                    .then(text => {
+                        const linksData = parseTSV(text);
+                        renderAll(linksData);
+                    })
+                    .catch(err => {
+                        console.error('数据加载失败:', err);
+                        // 如果加载失败，可以显示一条提示（此处简单留空）
+                        contentArea.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;">链接数据加载失败，请确认 lnk.csv 存在且通过服务器访问。</div>';
+                    });
+            }
+
+            // ---------- 布局与渲染 ----------
+            function getConfig() {
+                const isMobile = window.innerWidth <= 768;
+                return {
+                    columns: isMobile ? 5 : 12,
+                    defaultRows: isMobile ? 5 : 2,
+                    isMobile: isMobile,
+                };
+            }
+
+            function escapeHTML(str) {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function createPlateHTML(linkData, index) {
+                const hasLink = linkData && linkData.url;
+                const styleNum = linkData ? linkData.style : ((index % 6) + 1);
+                const iconSrc = linkData && linkData.icon ? 'img/icon/' + linkData.icon : '';
+                const name = linkData ? linkData.name : '';
+                const url = linkData ? linkData.url : '';
+                const desc = linkData ? (linkData.desc || '') : '';
+                const isEmpty = !hasLink;
+
+                const plateClass = 'plate style-' + styleNum + (isEmpty ? ' empty-plate' : '');
+                let html = '<div class="plate-unit">';
+                html += '<div class="rope"></div>';
+                html += '<div class="' + plateClass + '"';
+                if (hasLink && desc) {
+                    html += ' title="' + escapeHTML(desc) + '"';
+                }
+                if (hasLink) {
+                    html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
+                }
+                html += '>';
+                if (hasLink && iconSrc) {
+                    html += '<div class="icon-circle">';
+                    html += '<img src="' + escapeHTML(iconSrc) + '" alt="' + escapeHTML(name) + '" loading="lazy" onerror="this.style.display=\'none\'">';
+                    html += '</div>';
+                }
+                html += '</div>';
+                html += '</div>';
+                return html;
+            }
+
+            function createNameHTML(linkData) {
+                const hasLink = linkData && linkData.url;
+                const name = linkData ? linkData.name : '';
+                const url = linkData ? linkData.url : '';
+                const cls = 'name-slot' + (hasLink ? ' has-link' : ' empty-name');
+                let html = '<span class="' + cls + '"';
+                if (hasLink) {
+                    html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
+                }
+                html += '>' + escapeHTML(name) + '</span>';
+                return html;
+            }
+
+            function renderAll(linksData) {
+                const config = getConfig();
+                const columns = config.columns;
+                const defaultRows = config.defaultRows;
+                const totalLinks = linksData.length;
+                const minSlots = Math.max(defaultRows * columns, totalLinks);
+                const rows = Math.ceil(minSlots / columns);
+                const totalSlots = rows * columns;
+
+                const allSlots = [];
+                for (let i = 0; i < totalSlots; i++) {
+                    allSlots.push(i < totalLinks ? linksData[i] : null);
+                }
+
+                let html = '';
+                for (let row = 0; row < rows; row++) {
+                    const rowSlots = allSlots.slice(row * columns, (row + 1) * columns);
+
+                    html += '<div class="row-group">';
+                    html += '<div class="black-line"></div>';
+                    html += '<div class="plates-row">';
+                    for (let col = 0; col < columns; col++) {
+                        html += createPlateHTML(rowSlots[col] || null, row * columns + col);
+                    }
+                    html += '</div>';
+                    html += '<div class="black-line"></div>';
+                    html += '<div class="gold-name-row">';
+                    for (let col = 0; col < columns; col++) {
+                        html += createNameHTML(rowSlots[col] || null);
+                    }
+                    html += '</div>';
+                    html += '<div class="black-line"></div>';
+                    html += '</div>';
+                }
+                contentArea.innerHTML = html;
+
+                if (config.isMobile) {
+                    contentArea.scrollTop = 0;
+                }
+            }
+
+            // 首次加载
+            loadAndRender();
+
+            // 响应式切换时重新渲染（需要数据，因此维护一份全局 linksData）
+            let currentLinksData = [];
+            const originalLoad = loadAndRender;
+            // 改造 loadAndRender 使其同时缓存数据，以便 resize 时重用
+            window.loadAndRender = function() {
+                fetch('lnk.csv')
+                    .then(response => response.text())
+                    .then(text => {
+                        currentLinksData = parseTSV(text);
+                        renderAll(currentLinksData);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        contentArea.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;">链接数据加载失败。</div>';
+                    });
+            };
+
+            // 替换为缓存版本
+            loadAndRender = function() {
+                fetch('lnk.csv')
+                    .then(response => response.text())
+                    .then(text => {
+                        currentLinksData = parseTSV(text);
+                        renderAll(currentLinksData);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                    });
+            };
+            loadAndRender();
+
+            let resizeTimeout;
+            let lastIsMobile = window.innerWidth <= 768;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(function() {
+                    const currentIsMobile = window.innerWidth <= 768;
+                    if (currentIsMobile !== lastIsMobile && currentLinksData.length > 0) {
+                        lastIsMobile = currentIsMobile;
+                        renderAll(currentLinksData);
+                    }
+                }, 250);
+            });
+
+            document.addEventListener('error', function(e) {
+                if (e.target && e.target.tagName === 'IMG' && e.target.closest('.icon-circle')) {
+                    e.target.style.display = 'none';
+                }
+            }, true);
+        })();
+    </script>
+</body>
+</html>
