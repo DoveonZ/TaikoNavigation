@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>TaikoNavigation - 太鼓达人导航</title>
     <style>
         :root {
@@ -28,7 +28,11 @@
             --bg-image: url('img/background.png');
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             background-color: #1a1a0f;
@@ -51,9 +55,11 @@
         body::before {
             content: '';
             position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.22);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.22);
             z-index: 0;
             pointer-events: none;
         }
@@ -69,7 +75,13 @@
             align-items: center;
         }
 
-        .header { width: 100%; display: flex; flex-direction: column; align-items: stretch; flex-shrink: 0; }
+        .header {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
 
         .gold-bar {
             background: var(--gold);
@@ -78,7 +90,11 @@
             width: 100vw;
             margin-left: calc(50% - 50vw);
         }
-        .gold-bar.thin { height: var(--gold-block-height); }
+
+        .gold-bar.thin {
+            height: var(--gold-block-height);
+        }
+
         .gold-bar.title-bar {
             height: var(--gold-title-height);
             display: flex;
@@ -88,12 +104,73 @@
             font-size: 2rem;
             font-weight: 900;
             letter-spacing: 0.1em;
-            text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5);
             user-select: none;
         }
 
-        .content-area { width: 100%; display: flex; flex-direction: column; align-items: stretch; flex-shrink: 0; }
-        .row-group { width: 100%; display: flex; flex-direction: column; align-items: stretch; }
+        .content-area {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+
+        .row-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            /* 不再需要动画初始状态，已移除 opacity 和 animation-fill-mode */
+        }
+
+        /* 动画只作用于 plates-row（牌子和绳索所在的容器） */
+        .plates-row.row-animate,
+        .plates-row.row-animate-reverse {
+            opacity: 0;
+            animation-fill-mode: both;
+        }
+
+        .plates-row.row-animate {
+            animation-name: slideInLeft;
+            animation-duration: 0.9s;
+            animation-timing-function: ease-out;
+        }
+
+        .plates-row.row-animate-reverse {
+            animation-name: slideInRight;
+            animation-duration: 0.9s;
+            animation-timing-function: ease-out;
+        }
+
+        @keyframes slideInLeft {
+            0%   { opacity: 0; transform: translateX(-35vw); }
+            26%  { opacity: 1; transform: translateX(0); }
+            52%  { transform: translateX(-8vw); }
+            67%  { transform: translateX(0); }
+            78%  { transform: translateX(-4vw); }
+            89%  { transform: translateX(0); }
+            96%  { transform: translateX(-2vw); }
+            97%  { transform: translateX(0); }
+            98%  { transform: translateX(-1vw); }
+            99%  { transform: translateX(0); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes slideInRight {
+            0%   { opacity: 0; transform: translateX(35vw); }
+            26%  { opacity: 1; transform: translateX(0); }
+            52%  { transform: translateX(8vw); }
+            67%  { transform: translateX(0); }
+            78%  { transform: translateX(4vw); }
+            89%  { transform: translateX(0); }
+            96%  { transform: translateX(2vw); }
+            97%  { transform: translateX(0); }
+            98%  { transform: translateX(1vw); }
+            99%  { transform: translateX(0); }
+            100% { opacity: 1; transform: translateX(0); }
+
+        }
 
         .black-line {
             height: var(--thin-black-height);
@@ -116,7 +193,13 @@
             flex-shrink: 0;
         }
 
-        .plate-unit { display: flex; flex-direction: column; align-items: center; width: var(--plate-width); flex-shrink: 0; }
+        .plate-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: var(--plate-width);
+            flex-shrink: 0;
+        }
 
         .rope {
             width: var(--rope-width);
@@ -126,6 +209,14 @@
             opacity: 0.9;
             margin: 0 auto;
             border-radius: 2px 2px 0 0;
+            margin-bottom: -12px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 空牌位对应的绳索完全隐藏 */
+        .empty-unit .rope {
+            opacity: 0;
         }
 
         .plate {
@@ -137,33 +228,37 @@
             position: relative;
             cursor: pointer;
             transition: transform 0.22s ease, filter 0.22s ease;
-            filter: drop-shadow(3px 4px 7px rgba(0,0,0,0.5));
+            filter: drop-shadow(3px 4px 7px rgba(0, 0, 0, 0.5));
             flex-shrink: 0;
-            z-index: 1;
+            z-index: 2;
         }
 
         .plate:hover {
             transform: translateY(-6px);
-            filter: drop-shadow(4px 8px 16px rgba(0,0,0,0.6)) brightness(1.07);
+            filter: drop-shadow(4px 8px 16px rgba(0, 0, 0, 0.6)) brightness(1.07);
             z-index: 10;
         }
-        .plate:active { transform: translateY(-2px); transition: transform 0.06s ease; }
 
-        .plate.style-1 { background-position: 0 0; }
-        .plate.style-2 { background-position: calc(-1 * var(--plate-width)) 0; }
-        .plate.style-3 { background-position: calc(-2 * var(--plate-width)) 0; }
-        .plate.style-4 { background-position: calc(-3 * var(--plate-width)) 0; }
-        .plate.style-5 { background-position: calc(-4 * var(--plate-width)) 0; }
-        .plate.style-6 { background-position: calc(-5 * var(--plate-width)) 0; }
+        .plate:active {
+            transform: translateY(-2px);
+            transition: transform 0.06s ease;
+        }
+
+        .plate.style-1 { background-position: 0% 0; }
+        .plate.style-2 { background-position: 20% 0; }
+        .plate.style-3 { background-position: 40% 0; }
+        .plate.style-4 { background-position: 60% 0; }
+        .plate.style-5 { background-position: 79.8% 0; }
+        .plate.style-6 { background-position: 99.8% 0; }
 
         .plate.empty-plate {
             cursor: default;
-            opacity: 0.5;
-            filter: drop-shadow(2px 3px 5px rgba(0,0,0,0.3)) grayscale(10%);
+            opacity: 0;
+            filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.3)) grayscale(10%);
         }
         .plate.empty-plate:hover {
             transform: none;
-            filter: drop-shadow(2px 3px 5px rgba(0,0,0,0.3)) grayscale(10%);
+            filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.3)) grayscale(10%);
             cursor: default;
         }
 
@@ -175,16 +270,22 @@
             overflow: hidden;
             left: var(--icon-left);
             top: var(--icon-top);
-            background: rgba(0,0,0,0.12);
+            background: rgba(0, 0, 0, 0.12);
             display: flex;
             align-items: center;
             justify-content: center;
             pointer-events: none;
-            border: 2px solid rgba(255,255,255,0.22);
-            box-shadow: inset 0 0 8px rgba(0,0,0,0.25);
+            border: 2px solid rgba(255, 255, 255, 0.22);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.25);
         }
 
-        .plate .icon-circle img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .plate .icon-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
         .plate.empty-plate .icon-circle { display: none; }
 
         .gold-name-row {
@@ -215,7 +316,7 @@
             white-space: nowrap;
             padding: 0 3px;
             user-select: none;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.45);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.45);
             transition: color 0.2s ease;
             cursor: default;
         }
@@ -223,9 +324,12 @@
         .name-slot.has-link { cursor: pointer; }
         .name-slot.has-link:hover {
             color: #fffef0;
-            text-shadow: 1px 1px 6px rgba(255,255,255,0.5);
+            text-shadow: 1px 1px 6px rgba(255, 255, 255, 0.5);
         }
-        .name-slot.empty-name { opacity: 0.4; cursor: default; }
+        .name-slot.empty-name {
+            opacity: 0;
+            cursor: default;
+        }
 
         .footer-gold {
             height: var(--gold-block-height);
@@ -259,27 +363,34 @@
             body { padding: 8px 0 16px; }
             .main-container { padding: 0 6px; }
             .gold-bar.title-bar { font-size: 1.3rem; letter-spacing: 0.06em; }
-            .plate { filter: drop-shadow(2px 3px 4px rgba(0,0,0,0.5)); }
+            .plate { filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.5)); }
             .plate:hover {
                 transform: translateY(-4px);
-                filter: drop-shadow(3px 6px 10px rgba(0,0,0,0.55)) brightness(1.05);
+                filter: drop-shadow(3px 6px 10px rgba(0, 0, 0, 0.55)) brightness(1.05);
             }
-            .plate .icon-circle { border: 1.5px solid rgba(255,255,255,0.2); box-shadow: inset 0 0 5px rgba(0,0,0,0.25); }
-            .plate.empty-plate { opacity: 0.45; }
+            .plate .icon-circle {
+                border: 1.5px solid rgba(255, 255, 255, 0.2);
+                box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.25);
+            }
+            .plate.empty-plate { opacity: 0; }
             .name-slot { font-size: 0.6rem; letter-spacing: 0.02em; }
-            .rope { border-radius: 1.5px 1.5px 0 0; }
+            .rope { border-radius: 1.5px 1.5px 0 0; margin-bottom: -8px; position: relative; z-index: 1; }
             .content-area {
                 max-height: 78vh;
                 overflow-y: auto;
                 overflow-x: visible;
                 padding-bottom: 4px;
                 scrollbar-width: thin;
-                scrollbar-color: rgba(204,156,86,0.5) transparent;
+                scrollbar-color: rgba(204, 156, 86, 0.5) transparent;
                 -webkit-overflow-scrolling: touch;
             }
             .content-area::-webkit-scrollbar { width: 4px; }
             .content-area::-webkit-scrollbar-track { background: transparent; }
-            .content-area::-webkit-scrollbar-thumb { background: rgba(204,156,86,0.45); border-radius: 3px; }
+            .content-area::-webkit-scrollbar-thumb {
+                background: rgba(204, 156, 86, 0.45);
+                border-radius: 3px;
+            }
+            /* 移动端动画（可根据需要调整，此处沿用全局定义，也可单独覆盖） */
         }
 
         @media (max-width: 380px) {
@@ -297,68 +408,74 @@
                 --gold-name-height: 20px;
                 --gap-h: 4px;
             }
+            .rope { margin-bottom: -6px; }
             .name-slot { font-size: 0.5rem; }
             .gold-bar.title-bar { font-size: 1.05rem; }
         }
     </style>
 </head>
 <body>
+
     <div class="main-container">
         <header class="header">
             <div class="gold-bar thin"></div>
             <div class="gold-bar title-bar">TaikoNavigation</div>
             <div class="gold-bar thin"></div>
         </header>
+
         <div class="content-area" id="contentArea"></div>
+
         <div class="footer-gold"></div>
     </div>
 
     <script>
         (function() {
-            const contentArea = document.getElementById('contentArea');
+            const linksData = [
+                { name: '太鼓之达人官方', url: 'https://space.bilibili.com/3493292593383796', desc: '', icon: '0.png', style: 1 },
+                { name: '华立电竞', url: 'https://space.bilibili.com/332563726', desc: '', icon: 'wec.png', style: 1 },
+                { name: '太鼓WIKI（日）', url: 'https://wikiwiki.jp/taiko-fumen/', desc: '日本玩家搭建的wiki，数据全面历史悠久', icon: 'wiki.png', style: 1 },
+                { name: '太鼓WIKI（韩）', url: 'https://wikiwiki.jp/taiko-fumen/', desc: '韩国玩家搭建的wiki，数据全面历史悠久', icon: 'wiki_ko.png', style: 1 },
+                { name: '太鼓Fandom', url: 'https://taiko.fandom.com/zh/wiki/%E9%A6%96%E9%A0%81', desc: '', icon: '0.png', style: 1 },
+                { name: '音游地图', url: 'https://map.bemanicn.com/games/31', desc: '', icon: 'bemani.png', style: 1 },
+                { name: '葉月ゆら主页', url: 'https://hatukiyura.sakura.ne.jp/', desc: '叶月由罗的个人主页，可以查询到其往年作品和活动日程', icon: 'yura.jpg', style: 1 },
 
-            // ---------- 从 lnk.csv 读取数据 ----------
-            function parseTSV(text) {
-                const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-                if (lines.length === 0) return [];
+                { name: 'Rating系统', url: 'https://v2.rating.ourtaiko.org/v2test', desc: '国内玩家开发的成绩评分系统', icon: '0.png', style: 2 },
+                { name: 'Database定数表', url: 'https://fumen-database.com/difficulty/?const_desc', desc: '', icon: 'wiki.png', style: 2 },
+                { name: 'Donder查分器', url: 'https://prober.ourtaiko.org/search', desc: '', icon: 'luluxia.png', style: 2 },
+                { name: 'DonderNote', url: 'https://hatahata.outsystemscloud.com/DonderNote/Menu', desc: '', icon: 'DonderNote.png', style: 2 },
 
-                // 判断第一行是否为表头：第二列若以 http 开头则认为不是表头
-                const firstCols = lines[0].split('\t');
-                const skipHeader = firstCols.length >= 2 && !/^https?:\/\//i.test(firstCols[1].trim());
-                const dataLines = skipHeader ? lines.slice(1) : lines;
+                { name: 'TaikoNauts', url: 'https://seesaawiki.jp/taikonauts/', desc: '', icon: 'TaikoNauts.ico', style: 3 },
+                { name: 'OpenTaiko', url: 'https://opentaiko.github.io/', desc: '', icon: 'OpenTaiko.ico', style: 3 },
+                { name: 'ESE TJA', url: 'https://ese.tjadataba.se/ESE/ESE/', desc: '', icon: 'ese.png', style: 3 },
+                { name: 'ESE Helper', url: 'https://taiko.vanillaaaa.org/', desc: '', icon: 'ese.png', style: 3 },
+                { name: 'PeepoDrumKit', url: 'https://wwaya.lanzoup.com/iHj8b3e7ooyh', desc: '可视化的谱面编辑，让小白也能迅速创建自己的太鼓谱面', icon: 'PeepoDrumKit.ico', style: 3 },
+                { name: 'TaikoWeb', url: 'https://taiko.asia/', desc: '太鼓达人在线模拟器', icon: 'taikoweb.png', style: 3 },
 
-                const result = [];
-                for (const line of dataLines) {
-                    const cols = line.split('\t');
-                    if (cols.length < 5) continue;
-                    const name = cols[0].trim();
-                    const url = cols[1].trim();
-                    const desc = cols[2] ? cols[2].trim() : '';
-                    const icon = cols[3].trim();
-                    const style = parseInt(cols[4].trim(), 10) || 1;
-                    result.push({ name, url, desc, icon, style });
-                }
-                return result;
-            }
+                { name: '歌曲检索器', url: 'https://olaf5103.cn:765/taiko/songs', desc: '', icon: '0.png', style: 4 },
+                { name: 'Donder Asistant', url: 'https://dafrok.github.io/donder-assistant/analysis', desc: '', icon: '0.png', style: 4 },
+                { name: 'Tja-Tools', url: 'https://whmhammer.github.io/tja-tools/', desc: '可以将tja文件转化为静态谱面图', icon: '0.png', style: 4 },
+                { name: 'Tja Analyser', url: 'https://tjaanalyzer-ja.ckq.me/', desc: '', icon: '0.png', style: 4 },
+                { name: 'TaikoImager', url: 'https://doveonz.github.io/Taiko-no-Tatsujin-Imager/', desc: '可以获得还原官方视觉效果的谱面片段或谱面图，支持各种演奏选项', icon: '0.png', style: 4 },
+                { name: 'AI定数预测', url: 'https://tjapre.haxif.com/', desc: '让AI对你创作的谱面进行难度的初步评估', icon: 'kokoko.jpg', style: 4 },
+                { name: '猫鼓的小店', url: 'https://m.tb.cn/h.8ceeLYiw0FAY9K7', desc: '', icon: 'cat.png', style: 5 },
+                { name: 'Power的小店', url: 'https://m.tb.cn/h.8Yfnk26SrA8pUqZ', desc: '', icon: 'power.png', style: 5 },
+                { name: '鱼鼓的小店', url: 'https://m.tb.cn/h.81neAPV?tk=6DKIgHaFqR5', desc: '', icon: 'sakataiko.png', style: 5 },
+                { name: '神童同学', url: 'https://m.tb.cn/h.8cJNqUO?tk=jmmEgH1Qo0i', desc: '', icon: 'stg.png', style: 5 },
+                { name: '单手全连逆战', url: 'https://m.tb.cn/h.8cqwDXa?tk=hurZgHYHZl1', desc: '', icon: 'nizhan.png', style: 5 },
+                { name: '狂澜怒涛', url: 'https://m.tb.cn/h.8cqx9ES?tk=zVYNgHYHAvf', desc: '', icon: '7f7f.png', style: 5 },
+                { name: '西瓜的音游小铺', url: 'https://m.tb.cn/h.8Ys9Atv?tk=ZPbKgHYti3K', desc: '', icon: 'watermelon.png', style: 5 },
+                { name: 'ZDR', url: 'https://m.tb.cn/h.8210xIi?tk=yD8tgHYztMN', desc: '', icon: 'zdr.png', style: 5 },
+                { name: '活体搁浅', url: 'https://m.tb.cn/h.81pdJXR?tk=0WqugHYwWq5', desc: '', icon: 'wai.jpg', style: 5 },
+                { name: '不灭的灯', url: 'https://m.tb.cn/h.81pYYTI?tk=qfzFgHYu00f', desc: '', icon: 'deng.png', style: 5 },
+                { name: '小言罐头', url: 'https://m.tb.cn/h.82YviOa?tk=oo9hgHYtJGQ', desc: '', icon: 'yan.png', style: 5 },
+                { name: '哈基缘', url: 'https://m.tb.cn/h.8217LAp?tk=rOm4gH16WJD', desc: '', icon: 'yuan.png', style: 5 },
+                { name: '小章木工坊', url: 'https://mobile.yangkeduo.com/mall_page.html?ps=IpGOWhdEwr', desc: '', icon: 'pdd.png', style: 5 },
 
-            function loadAndRender() {
-                fetch('lnk.csv')
-                    .then(response => {
-                        if (!response.ok) throw new Error('无法加载 lnk.csv');
-                        return response.text();
-                    })
-                    .then(text => {
-                        const linksData = parseTSV(text);
-                        renderAll(linksData);
-                    })
-                    .catch(err => {
-                        console.error('数据加载失败:', err);
-                        // 如果加载失败，可以显示一条提示（此处简单留空）
-                        contentArea.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;">链接数据加载失败，请确认 lnk.csv 存在且通过服务器访问。</div>';
-                    });
-            }
+                { name: '菌菌控制台', url: 'https://kinoko.zorua.cn/', desc: '菌菌控制台！可以管理自己的成绩以及使用菌菌的多项隐藏功能！', icon: 'junjun.png', style: 6 },
+                { name: '菌菌别名表格', url: 'https://www.kdocs.cn/l/cauSVZId2ohu', desc: '', icon: 'junjun.png', style: 6 },
+                { name: 'Sakura Bot', url: 'https://viewer.sakura-bot.cn/', desc: '', icon: '0.png', style: 6 },
+            ];
 
-            // ---------- 布局与渲染 ----------
             function getConfig() {
                 const isMobile = window.innerWidth <= 768;
                 return {
@@ -383,7 +500,7 @@
                 const isEmpty = !hasLink;
 
                 const plateClass = 'plate style-' + styleNum + (isEmpty ? ' empty-plate' : '');
-                let html = '<div class="plate-unit">';
+                let html = '<div class="plate-unit' + (hasLink ? '' : ' empty-unit') + '">';
                 html += '<div class="rope"></div>';
                 html += '<div class="' + plateClass + '"';
                 if (hasLink && desc) {
@@ -416,7 +533,7 @@
                 return html;
             }
 
-            function renderAll(linksData) {
+            function renderAll() {
                 const config = getConfig();
                 const columns = config.columns;
                 const defaultRows = config.defaultRows;
@@ -430,13 +547,18 @@
                     allSlots.push(i < totalLinks ? linksData[i] : null);
                 }
 
+                const contentArea = document.getElementById('contentArea');
                 let html = '';
+
                 for (let row = 0; row < rows; row++) {
                     const rowSlots = allSlots.slice(row * columns, (row + 1) * columns);
 
+                    // 奇数行从左飞入，偶数行从右飞入，动画只作用于 plates-row
+                    const directionClass = (row % 2 === 0) ? 'row-animate' : 'row-animate-reverse';
+
                     html += '<div class="row-group">';
                     html += '<div class="black-line"></div>';
-                    html += '<div class="plates-row">';
+                    html += '<div class="plates-row ' + directionClass + '">';
                     for (let col = 0; col < columns; col++) {
                         html += createPlateHTML(rowSlots[col] || null, row * columns + col);
                     }
@@ -450,6 +572,7 @@
                     html += '<div class="black-line"></div>';
                     html += '</div>';
                 }
+
                 contentArea.innerHTML = html;
 
                 if (config.isMobile) {
@@ -457,39 +580,7 @@
                 }
             }
 
-            // 首次加载
-            loadAndRender();
-
-            // 响应式切换时重新渲染（需要数据，因此维护一份全局 linksData）
-            let currentLinksData = [];
-            const originalLoad = loadAndRender;
-            // 改造 loadAndRender 使其同时缓存数据，以便 resize 时重用
-            window.loadAndRender = function() {
-                fetch('lnk.csv')
-                    .then(response => response.text())
-                    .then(text => {
-                        currentLinksData = parseTSV(text);
-                        renderAll(currentLinksData);
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        contentArea.innerHTML = '<div style="color:#fff;text-align:center;padding:40px;">链接数据加载失败。</div>';
-                    });
-            };
-
-            // 替换为缓存版本
-            loadAndRender = function() {
-                fetch('lnk.csv')
-                    .then(response => response.text())
-                    .then(text => {
-                        currentLinksData = parseTSV(text);
-                        renderAll(currentLinksData);
-                    })
-                    .catch(err => {
-                        console.error(err);
-                    });
-            };
-            loadAndRender();
+            renderAll();
 
             let resizeTimeout;
             let lastIsMobile = window.innerWidth <= 768;
@@ -497,9 +588,9 @@
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(function() {
                     const currentIsMobile = window.innerWidth <= 768;
-                    if (currentIsMobile !== lastIsMobile && currentLinksData.length > 0) {
+                    if (currentIsMobile !== lastIsMobile) {
                         lastIsMobile = currentIsMobile;
-                        renderAll(currentLinksData);
+                        renderAll();
                     }
                 }, 250);
             });
