@@ -18,11 +18,11 @@
             --icon-left: 31.5px;
             --icon-top: 27px;
             --rope-width: 6px;
-            --rope-height: 33px;       /* 原 50px，缩短为 2/3 */
+            --rope-height: 33px;
             --thin-black-height: 3px;
             --gold-block-height: 10px;
             --gold-title-height: 52px;
-            --gold-name-height: 30px;
+            --gold-name-min-height: 36px;
             --columns: 12;
             --gap-h: 14px;
             --content-max-width: 1680px;
@@ -208,7 +208,7 @@
             opacity: 0.9;
             margin: 0 auto;
             border-radius: 2px 2px 0 0;
-            margin-bottom: -8px;        /* 原 -12px，与缩短的绳子匹配 */
+            margin-bottom: -8px;
             position: relative;
             z-index: 1;
         }
@@ -246,8 +246,8 @@
         .plate.style-2 { background-position: 20% 0; }
         .plate.style-3 { background-position: 40% 0; }
         .plate.style-4 { background-position: 60% 0; }
-        .plate.style-5 { background-position: 80% 0; }
-        .plate.style-6 { background-position: 100% 0; }
+        .plate.style-5 { background-position: 79.8% 0; }
+        .plate.style-6 { background-position: 99.85% 0; }
 
         .plate.empty-plate {
             cursor: default;
@@ -295,7 +295,8 @@
             align-items: center;
             gap: var(--gap-h);
             flex-wrap: nowrap;
-            height: var(--gold-name-height);
+            min-height: var(--gold-name-min-height);
+            height: auto;
             flex-shrink: 0;
             width: 100vw;
             margin-left: calc(50% - 50vw);
@@ -306,17 +307,22 @@
             text-align: center;
             flex-shrink: 0;
             color: var(--white);
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 0.03em;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            padding: 0 3px;
+            line-height: 1.2;
+            padding: 2px 3px;
             user-select: none;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.45);
             transition: color 0.2s ease;
             cursor: default;
+            /* 允许换行，优先空格处断开，最多两行 */
+            white-space: normal;
+            word-break: break-word;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
 
         .name-slot.has-link { cursor: pointer; }
@@ -373,11 +379,15 @@
                 box-shadow: inset 0 0 calc(5px * var(--scale)) rgba(0,0,0,0.25);
             }
             .plate.empty-plate { opacity: 0; }
-            .name-slot { font-size: calc(9.6px * var(--scale)); letter-spacing: 0.02em; }
+
+            .name-slot {
+                font-size: calc(8.4px * var(--scale));
+                letter-spacing: 0.02em;
+            }
 
             .rope {
                 border-radius: calc(1.5px * var(--scale)) calc(1.5px * var(--scale)) 0 0;
-                margin-bottom: calc(-5px * var(--scale));  /* 移动端绳子负边距，随缩放调整 */
+                margin-bottom: calc(-5px * var(--scale));
                 position: relative;
                 z-index: 1;
             }
@@ -427,7 +437,7 @@
                     root.style.setProperty('--thin-black-height', '3px');
                     root.style.setProperty('--gold-block-height', '10px');
                     root.style.setProperty('--gold-title-height', '52px');
-                    root.style.setProperty('--gold-name-height', '30px');
+                    root.style.setProperty('--gold-name-min-height', '36px');
                     root.style.setProperty('--gap-h', '14px');
                     return;
                 }
@@ -440,26 +450,23 @@
                     iconLeft: 18,
                     iconTop: 14.5,
                     ropeWidth: 4,
-                    ropeHeight: 25,          // 原 38 缩短为 2/3
+                    ropeHeight: 25,
                     thinBlack: 2.5,
                     goldBlock: 8,
                     titleHeight: 42,
-                    nameHeight: 24,
+                    nameMinHeight: 28,      // 两行文字区域最小高度
                     gapH: 7,
-                    ropeMarginBottom: 5,     // 原 8 缩短为 2/3
+                    ropeMarginBottom: 5,
                 };
 
-                // 每行高度 = 黑线 + (绳子有效高度 + 板子高度) + 黑线 + 名称行高度 + 黑线
-                // 绳子有效高度 = ropeHeight - ropeMarginBottom （因为 margin-bottom 为负，视觉上绳子会延伸进板子区域）
+                // 每行高度：黑线 + (有效绳索高度 + 板子高度) + 黑线 + 名称区域最小高度 + 黑线
                 const effectiveRope = BASE.ropeHeight - BASE.ropeMarginBottom;
-                const rowHeight = BASE.thinBlack + effectiveRope + BASE.plateHeight + BASE.thinBlack + BASE.nameHeight + BASE.thinBlack;
-                const totalContentHeight = 5 * rowHeight;   // 固定 5 行
+                const rowHeight = BASE.thinBlack + effectiveRope + BASE.plateHeight + BASE.thinBlack + BASE.nameMinHeight + BASE.thinBlack;
+                const totalContentHeight = 5 * rowHeight;
                 const totalHeaderFooter = BASE.goldBlock + BASE.titleHeight + BASE.goldBlock + BASE.goldBlock;
                 const totalHeightBase = totalContentHeight + totalHeaderFooter;
 
-                // 宽度计算：6 个板子 + 5 个间隙 + 预留内边距
                 const totalWidthBase = BASE.plateWidth * 6 + BASE.gapH * 5 + 12;
-
                 const vh = window.innerHeight;
                 const vw = window.innerWidth;
                 const scaleH = vh / totalHeightBase;
@@ -479,7 +486,7 @@
                 root.style.setProperty('--thin-black-height', `${BASE.thinBlack * scale}px`);
                 root.style.setProperty('--gold-block-height', `${BASE.goldBlock * scale}px`);
                 root.style.setProperty('--gold-title-height', `${BASE.titleHeight * scale}px`);
-                root.style.setProperty('--gold-name-height', `${BASE.nameHeight * scale}px`);
+                root.style.setProperty('--gold-name-min-height', `${BASE.nameMinHeight * scale}px`);
                 root.style.setProperty('--gap-h', `${BASE.gapH * scale}px`);
             }
 
