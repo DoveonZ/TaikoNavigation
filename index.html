@@ -18,7 +18,7 @@
             --icon-left: 31.5px;
             --icon-top: 27px;
             --rope-width: 6px;
-            --rope-height: 50px;
+            --rope-height: 33px;       /* 原 50px，缩短为 2/3 */
             --thin-black-height: 3px;
             --gold-block-height: 10px;
             --gold-title-height: 52px;
@@ -27,6 +27,7 @@
             --gap-h: 14px;
             --content-max-width: 1680px;
             --bg-image: url('img/background.png');
+            --scale: 1;
         }
 
         * {
@@ -122,10 +123,8 @@
             display: flex;
             flex-direction: column;
             align-items: stretch;
-            /* 不再需要动画初始状态，已移除 opacity 和 animation-fill-mode */
         }
 
-        /* 动画只作用于 plates-row（牌子和绳索所在的容器） */
         .plates-row.row-animate,
         .plates-row.row-animate-reverse {
             opacity: 0;
@@ -170,7 +169,6 @@
             98%  { transform: translateX(1vw); }
             99%  { transform: translateX(0); }
             100% { opacity: 1; transform: translateX(0); }
-
         }
 
         .black-line {
@@ -210,12 +208,11 @@
             opacity: 0.9;
             margin: 0 auto;
             border-radius: 2px 2px 0 0;
-            margin-bottom: -12px;
+            margin-bottom: -8px;        /* 原 -12px，与缩短的绳子匹配 */
             position: relative;
             z-index: 1;
         }
 
-        /* 空牌位对应的绳索完全隐藏 */
         .empty-unit .rope {
             opacity: 0;
         }
@@ -249,8 +246,8 @@
         .plate.style-2 { background-position: 20% 0; }
         .plate.style-3 { background-position: 40% 0; }
         .plate.style-4 { background-position: 60% 0; }
-        .plate.style-5 { background-position: 79.8% 0; }
-        .plate.style-6 { background-position: 99.8% 0; }
+        .plate.style-5 { background-position: 80% 0; }
+        .plate.style-6 { background-position: 100% 0; }
 
         .plate.empty-plate {
             cursor: default;
@@ -341,77 +338,55 @@
             margin-left: calc(50% - 50vw);
         }
 
+        /* 移动端自适应缩放 */
         @media (max-width: 768px) {
             :root {
-                --plate-width: 68px;
-                --plate-height: 143px;
-                --sprite-bg-width: 408px;
-                --sprite-bg-height: 143px;
-                --icon-diameter: 32px;
-                --icon-left: 18px;
-                --icon-top: 14.5px;
-                --rope-width: 4px;
-                --rope-height: 38px;
-                --thin-black-height: 2.5px;
-                --gold-block-height: 8px;
-                --gold-title-height: 42px;
-                --gold-name-height: 24px;
-                --columns: 5;
-                --gap-h: 7px;
-                --content-max-width: 420px;
+                --columns: 6;
+                --content-max-width: 100%;
                 --bg-image: url('img/background.jpg');
             }
-            body { padding: 8px 0 16px; }
-            .main-container { padding: 0 6px; }
-            .gold-bar.title-bar { font-size: 1.3rem; letter-spacing: 0.06em; }
-            .plate { filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.5)); }
+
+            body {
+                padding: 0;
+            }
+
+            .main-container {
+                padding: 0;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .gold-bar.title-bar {
+                font-size: calc(21px * var(--scale));
+                letter-spacing: 0.06em;
+            }
+
+            .plate {
+                filter: drop-shadow(calc(2px * var(--scale)) calc(3px * var(--scale)) calc(4px * var(--scale)) rgba(0,0,0,0.5));
+            }
             .plate:hover {
-                transform: translateY(-4px);
-                filter: drop-shadow(3px 6px 10px rgba(0, 0, 0, 0.55)) brightness(1.05);
+                transform: translateY(calc(-4px * var(--scale)));
+                filter: drop-shadow(calc(3px * var(--scale)) calc(6px * var(--scale)) calc(10px * var(--scale)) rgba(0,0,0,0.55)) brightness(1.05);
             }
             .plate .icon-circle {
-                border: 1.5px solid rgba(255, 255, 255, 0.2);
-                box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.25);
+                border: calc(1.5px * var(--scale)) solid rgba(255,255,255,0.2);
+                box-shadow: inset 0 0 calc(5px * var(--scale)) rgba(0,0,0,0.25);
             }
             .plate.empty-plate { opacity: 0; }
-            .name-slot { font-size: 0.6rem; letter-spacing: 0.02em; }
-            .rope { border-radius: 1.5px 1.5px 0 0; margin-bottom: -8px; position: relative; z-index: 1; }
-            .content-area {
-                max-height: 78vh;
-                overflow-y: auto;
-                overflow-x: visible;
-                padding-bottom: 4px;
-                scrollbar-width: thin;
-                scrollbar-color: rgba(204, 156, 86, 0.5) transparent;
-                -webkit-overflow-scrolling: touch;
-            }
-            .content-area::-webkit-scrollbar { width: 4px; }
-            .content-area::-webkit-scrollbar-track { background: transparent; }
-            .content-area::-webkit-scrollbar-thumb {
-                background: rgba(204, 156, 86, 0.45);
-                border-radius: 3px;
-            }
-            /* 移动端动画（可根据需要调整，此处沿用全局定义，也可单独覆盖） */
-        }
+            .name-slot { font-size: calc(9.6px * var(--scale)); letter-spacing: 0.02em; }
 
-        @media (max-width: 380px) {
-            :root {
-                --plate-width: 56px;
-                --plate-height: 118px;
-                --sprite-bg-width: 336px;
-                --sprite-bg-height: 118px;
-                --icon-diameter: 26px;
-                --icon-left: 15px;
-                --icon-top: 12px;
-                --rope-width: 3.5px;
-                --rope-height: 32px;
-                --gold-title-height: 36px;
-                --gold-name-height: 20px;
-                --gap-h: 4px;
+            .rope {
+                border-radius: calc(1.5px * var(--scale)) calc(1.5px * var(--scale)) 0 0;
+                margin-bottom: calc(-5px * var(--scale));  /* 移动端绳子负边距，随缩放调整 */
+                position: relative;
+                z-index: 1;
             }
-            .rope { margin-bottom: -6px; }
-            .name-slot { font-size: 0.5rem; }
-            .gold-bar.title-bar { font-size: 1.05rem; }
+
+            .content-area {
+                max-height: none;
+                overflow: visible;
+                padding-bottom: 0;
+            }
         }
     </style>
 </head>
@@ -433,10 +408,85 @@
         (function() {
             const linksData = [];
 
+            // ---------- 移动端自适应缩放 ----------
+            function updateMobileScale() {
+                const isMobile = window.innerWidth <= 768;
+                const root = document.documentElement;
+
+                if (!isMobile) {
+                    root.style.setProperty('--scale', '1');
+                    root.style.setProperty('--plate-width', '120px');
+                    root.style.setProperty('--plate-height', '252px');
+                    root.style.setProperty('--sprite-bg-width', '720px');
+                    root.style.setProperty('--sprite-bg-height', '252px');
+                    root.style.setProperty('--icon-diameter', '57px');
+                    root.style.setProperty('--icon-left', '31.5px');
+                    root.style.setProperty('--icon-top', '27px');
+                    root.style.setProperty('--rope-width', '6px');
+                    root.style.setProperty('--rope-height', '33px');
+                    root.style.setProperty('--thin-black-height', '3px');
+                    root.style.setProperty('--gold-block-height', '10px');
+                    root.style.setProperty('--gold-title-height', '52px');
+                    root.style.setProperty('--gold-name-height', '30px');
+                    root.style.setProperty('--gap-h', '14px');
+                    return;
+                }
+
+                // 移动端基准值（未缩放前的像素值）
+                const BASE = {
+                    plateWidth: 68,
+                    plateHeight: 143,
+                    iconDiameter: 32,
+                    iconLeft: 18,
+                    iconTop: 14.5,
+                    ropeWidth: 4,
+                    ropeHeight: 25,          // 原 38 缩短为 2/3
+                    thinBlack: 2.5,
+                    goldBlock: 8,
+                    titleHeight: 42,
+                    nameHeight: 24,
+                    gapH: 7,
+                    ropeMarginBottom: 5,     // 原 8 缩短为 2/3
+                };
+
+                // 每行高度 = 黑线 + (绳子有效高度 + 板子高度) + 黑线 + 名称行高度 + 黑线
+                // 绳子有效高度 = ropeHeight - ropeMarginBottom （因为 margin-bottom 为负，视觉上绳子会延伸进板子区域）
+                const effectiveRope = BASE.ropeHeight - BASE.ropeMarginBottom;
+                const rowHeight = BASE.thinBlack + effectiveRope + BASE.plateHeight + BASE.thinBlack + BASE.nameHeight + BASE.thinBlack;
+                const totalContentHeight = 5 * rowHeight;   // 固定 5 行
+                const totalHeaderFooter = BASE.goldBlock + BASE.titleHeight + BASE.goldBlock + BASE.goldBlock;
+                const totalHeightBase = totalContentHeight + totalHeaderFooter;
+
+                // 宽度计算：6 个板子 + 5 个间隙 + 预留内边距
+                const totalWidthBase = BASE.plateWidth * 6 + BASE.gapH * 5 + 12;
+
+                const vh = window.innerHeight;
+                const vw = window.innerWidth;
+                const scaleH = vh / totalHeightBase;
+                const scaleW = vw / totalWidthBase;
+                const scale = Math.min(scaleH, scaleW, 1.5);
+
+                root.style.setProperty('--scale', scale);
+                root.style.setProperty('--plate-width', `${BASE.plateWidth * scale}px`);
+                root.style.setProperty('--plate-height', `${BASE.plateHeight * scale}px`);
+                root.style.setProperty('--sprite-bg-width', `${BASE.plateWidth * 6 * scale}px`);
+                root.style.setProperty('--sprite-bg-height', `${BASE.plateHeight * scale}px`);
+                root.style.setProperty('--icon-diameter', `${BASE.iconDiameter * scale}px`);
+                root.style.setProperty('--icon-left', `${BASE.iconLeft * scale}px`);
+                root.style.setProperty('--icon-top', `${BASE.iconTop * scale}px`);
+                root.style.setProperty('--rope-width', `${BASE.ropeWidth * scale}px`);
+                root.style.setProperty('--rope-height', `${BASE.ropeHeight * scale}px`);
+                root.style.setProperty('--thin-black-height', `${BASE.thinBlack * scale}px`);
+                root.style.setProperty('--gold-block-height', `${BASE.goldBlock * scale}px`);
+                root.style.setProperty('--gold-title-height', `${BASE.titleHeight * scale}px`);
+                root.style.setProperty('--gold-name-height', `${BASE.nameHeight * scale}px`);
+                root.style.setProperty('--gap-h', `${BASE.gapH * scale}px`);
+            }
+
             function getConfig() {
                 const isMobile = window.innerWidth <= 768;
                 return {
-                    columns: isMobile ? 5 : 12,
+                    columns: isMobile ? 6 : 12,
                     defaultRows: isMobile ? 5 : 2,
                     isMobile: isMobile,
                 };
@@ -491,6 +541,8 @@
             }
 
             function renderAll() {
+                updateMobileScale();
+
                 const config = getConfig();
                 const columns = config.columns;
                 const defaultRows = config.defaultRows;
@@ -509,7 +561,6 @@
 
                 for (let row = 0; row < rows; row++) {
                     const rowSlots = allSlots.slice(row * columns, (row + 1) * columns);
-
                     const directionClass = (row % 2 === 0) ? 'row-animate' : 'row-animate-reverse';
 
                     html += '<div class="row-group">';
@@ -530,11 +581,8 @@
                 }
 
                 contentArea.innerHTML = html;
-
-                if (config.isMobile) {
-                    contentArea.scrollTop = 0;
-                }
             }
+
             (async function loadData() {
                 try {
                     const response = await fetch('data.xlsx');
@@ -544,7 +592,6 @@
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                     
-                    const headers = rows[0]; // 表头 name,url,desc,icon,style
                     for (let i = 1; i < rows.length; i++) {
                         const row = rows[i];
                         if (!row || row.length === 0) continue;
@@ -564,14 +611,15 @@
             })();
 
             let resizeTimeout;
-            let lastIsMobile = window.innerWidth <= 768;
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(function() {
-                    const currentIsMobile = window.innerWidth <= 768;
-                    if (currentIsMobile !== lastIsMobile) {
-                        lastIsMobile = currentIsMobile;
+                    const isMobile = window.innerWidth <= 768;
+                    const wasMobile = (document.documentElement.style.getPropertyValue('--columns') === '6');
+                    if (isMobile !== wasMobile) {
                         renderAll();
+                    } else {
+                        updateMobileScale();
                     }
                 }, 250);
             });
