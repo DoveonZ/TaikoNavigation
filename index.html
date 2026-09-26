@@ -30,11 +30,7 @@
             --scale: 1;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background-color: #1a1a0f;
@@ -57,10 +53,7 @@
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.22);
             z-index: 0;
             pointer-events: none;
@@ -92,11 +85,7 @@
             width: 100vw;
             margin-left: calc(50% - 50vw);
         }
-
-        .gold-bar.thin {
-            height: var(--gold-block-height);
-        }
-
+        .gold-bar.thin { height: var(--gold-block-height); }
         .gold-bar.title-bar {
             height: var(--gold-title-height);
             display: flex;
@@ -130,19 +119,16 @@
             opacity: 0;
             animation-fill-mode: both;
         }
-
         .plates-row.row-animate {
             animation-name: slideInLeft;
             animation-duration: 0.9s;
             animation-timing-function: ease-out;
         }
-
         .plates-row.row-animate-reverse {
             animation-name: slideInRight;
             animation-duration: 0.9s;
             animation-timing-function: ease-out;
         }
-
         @keyframes slideInLeft {
             0%   { opacity: 0; transform: translateX(-35vw); }
             26%  { opacity: 1; transform: translateX(0); }
@@ -156,7 +142,6 @@
             99%  { transform: translateX(0); }
             100% { opacity: 1; transform: translateX(0); }
         }
-
         @keyframes slideInRight {
             0%   { opacity: 0; transform: translateX(35vw); }
             26%  { opacity: 1; transform: translateX(0); }
@@ -212,10 +197,7 @@
             position: relative;
             z-index: 1;
         }
-
-        .empty-unit .rope {
-            opacity: 0;
-        }
+        .empty-unit .rope { opacity: 0; }
 
         .plate {
             width: var(--plate-width);
@@ -230,13 +212,11 @@
             flex-shrink: 0;
             z-index: 2;
         }
-
         .plate:hover {
             transform: translateY(-6px);
             filter: drop-shadow(4px 8px 16px rgba(0, 0, 0, 0.6)) brightness(1.07);
             z-index: 10;
         }
-
         .plate:active {
             transform: translateY(-2px);
             transition: transform 0.06s ease;
@@ -276,15 +256,40 @@
             border: 2px solid rgba(255, 255, 255, 0.22);
             box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.25);
         }
-
         .plate .icon-circle img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
         }
-
         .plate.empty-plate .icon-circle { display: none; }
+
+        /* ========== 图标精准对齐（根据调试固化） ========== */
+        /* 偏移量会随 --scale 等比缩放，桌面端与移动端均正确 */
+        .plate.style-1 .icon-circle {
+            left: calc(var(--icon-left) - 0.1px * var(--scale));
+            top:  calc(var(--icon-top)  - 0.6px * var(--scale));
+        }
+        .plate.style-2 .icon-circle {
+            left: calc(var(--icon-left) + 1.3px * var(--scale));
+            top:  calc(var(--icon-top)  - 0.6px * var(--scale));
+        }
+        .plate.style-3 .icon-circle {
+            left: calc(var(--icon-left) + 2.2px * var(--scale));
+            top:  calc(var(--icon-top)  - 0.6px * var(--scale));
+        }
+        .plate.style-4 .icon-circle {
+            left: calc(var(--icon-left) + 0.2px * var(--scale));
+            top:  calc(var(--icon-top)  - 0.4px * var(--scale));
+        }
+        .plate.style-5 .icon-circle {
+            left: calc(var(--icon-left) + 0.3px * var(--scale));
+            top:  calc(var(--icon-top)  - 1px   * var(--scale));
+        }
+        .plate.style-6 .icon-circle {
+            left: calc(var(--icon-left) + 1.3px * var(--scale));
+            top:  calc(var(--icon-top)  - 0.5px * var(--scale));
+        }
 
         .gold-name-row {
             background: var(--gold);
@@ -316,7 +321,6 @@
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.45);
             transition: color 0.2s ease;
             cursor: default;
-            /* 允许换行，优先空格处断开，最多两行 */
             white-space: normal;
             word-break: break-word;
             overflow: hidden;
@@ -324,16 +328,12 @@
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
         }
-
         .name-slot.has-link { cursor: pointer; }
         .name-slot.has-link:hover {
             color: #fffef0;
             text-shadow: 1px 1px 6px rgba(255, 255, 255, 0.5);
         }
-        .name-slot.empty-name {
-            opacity: 0;
-            cursor: default;
-        }
+        .name-slot.empty-name { opacity: 0; cursor: default; }
 
         .footer-gold {
             height: var(--gold-block-height);
@@ -344,29 +344,15 @@
             margin-left: calc(50% - 50vw);
         }
 
-        /* 移动端自适应缩放 */
         @media (max-width: 768px) {
             :root {
                 --columns: 6;
                 --content-max-width: 100%;
                 --bg-image: url('img/background.jpg');
             }
-
-            body {
-                padding: 0;
-            }
-
-            .main-container {
-                padding: 0;
-                width: 100%;
-                max-width: 100%;
-            }
-
-            .gold-bar.title-bar {
-                font-size: calc(21px * var(--scale));
-                letter-spacing: 0.06em;
-            }
-
+            body { padding: 0; }
+            .main-container { padding: 0; width: 100%; max-width: 100%; }
+            .gold-bar.title-bar { font-size: calc(21px * var(--scale)); letter-spacing: 0.06em; }
             .plate {
                 filter: drop-shadow(calc(2px * var(--scale)) calc(3px * var(--scale)) calc(4px * var(--scale)) rgba(0,0,0,0.5));
             }
@@ -379,24 +365,14 @@
                 box-shadow: inset 0 0 calc(5px * var(--scale)) rgba(0,0,0,0.25);
             }
             .plate.empty-plate { opacity: 0; }
-
-            .name-slot {
-                font-size: calc(8.4px * var(--scale));
-                letter-spacing: 0.02em;
-            }
-
+            .name-slot { font-size: calc(8.4px * var(--scale)); letter-spacing: 0.02em; }
             .rope {
                 border-radius: calc(1.5px * var(--scale)) calc(1.5px * var(--scale)) 0 0;
                 margin-bottom: calc(-5px * var(--scale));
                 position: relative;
                 z-index: 1;
             }
-
-            .content-area {
-                max-height: none;
-                overflow: visible;
-                padding-bottom: 0;
-            }
+            .content-area { max-height: none; overflow: visible; padding-bottom: 0; }
         }
     </style>
 </head>
@@ -408,9 +384,7 @@
             <div class="gold-bar title-bar">TaikoNavigation</div>
             <div class="gold-bar thin"></div>
         </header>
-
         <div class="content-area" id="contentArea"></div>
-
         <div class="footer-gold"></div>
     </div>
 
@@ -418,11 +392,9 @@
         (function() {
             const linksData = [];
 
-            // ---------- 移动端自适应缩放 ----------
             function updateMobileScale() {
                 const isMobile = window.innerWidth <= 768;
                 const root = document.documentElement;
-
                 if (!isMobile) {
                     root.style.setProperty('--scale', '1');
                     root.style.setProperty('--plate-width', '120px');
@@ -441,34 +413,20 @@
                     root.style.setProperty('--gap-h', '14px');
                     return;
                 }
-
-                // 移动端基准值（未缩放前的像素值）
                 const BASE = {
-                    plateWidth: 68,
-                    plateHeight: 143,
-                    iconDiameter: 32,
-                    iconLeft: 18,
-                    iconTop: 14.5,
-                    ropeWidth: 4,
-                    ropeHeight: 25,
-                    thinBlack: 2.5,
-                    goldBlock: 8,
-                    titleHeight: 42,
-                    nameMinHeight: 28,      // 两行文字区域最小高度
-                    gapH: 7,
-                    ropeMarginBottom: 5,
+                    plateWidth: 68, plateHeight: 143,
+                    iconDiameter: 32, iconLeft: 18, iconTop: 14.5,
+                    ropeWidth: 4, ropeHeight: 25,
+                    thinBlack: 2.5, goldBlock: 8, titleHeight: 42,
+                    nameMinHeight: 28, gapH: 7, ropeMarginBottom: 5,
                 };
-
-                // 每行高度：黑线 + (有效绳索高度 + 板子高度) + 黑线 + 名称区域最小高度 + 黑线
                 const effectiveRope = BASE.ropeHeight - BASE.ropeMarginBottom;
                 const rowHeight = BASE.thinBlack + effectiveRope + BASE.plateHeight + BASE.thinBlack + BASE.nameMinHeight + BASE.thinBlack;
                 const totalContentHeight = 5 * rowHeight;
                 const totalHeaderFooter = BASE.goldBlock + BASE.titleHeight + BASE.goldBlock + BASE.goldBlock;
                 const totalHeightBase = totalContentHeight + totalHeaderFooter;
-
                 const totalWidthBase = BASE.plateWidth * 6 + BASE.gapH * 5 + 12;
-                const vh = window.innerHeight;
-                const vw = window.innerWidth;
+                const vh = window.innerHeight, vw = window.innerWidth;
                 const scaleH = vh / totalHeightBase;
                 const scaleW = vw / totalWidthBase;
                 const scale = Math.min(scaleH, scaleW, 1.5);
@@ -492,11 +450,7 @@
 
             function getConfig() {
                 const isMobile = window.innerWidth <= 768;
-                return {
-                    columns: isMobile ? 6 : 12,
-                    defaultRows: isMobile ? 5 : 2,
-                    isMobile: isMobile,
-                };
+                return { columns: isMobile ? 6 : 12, defaultRows: isMobile ? 5 : 2, isMobile };
             }
 
             function escapeHTML(str) {
@@ -512,25 +466,18 @@
                 const url = linkData ? linkData.url : '';
                 const desc = linkData ? (linkData.desc || '') : '';
                 const isEmpty = !hasLink;
-
                 const plateClass = 'plate style-' + styleNum + (isEmpty ? ' empty-plate' : '');
                 let html = '<div class="plate-unit' + (hasLink ? '' : ' empty-unit') + '">';
                 html += '<div class="rope"></div>';
                 html += '<div class="' + plateClass + '"';
-                if (hasLink && desc) {
-                    html += ' title="' + escapeHTML(desc) + '"';
-                }
-                if (hasLink) {
-                    html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
-                }
+                if (hasLink && desc) html += ' title="' + escapeHTML(desc) + '"';
+                if (hasLink) html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
                 html += '>';
                 if (hasLink && iconSrc) {
-                    html += '<div class="icon-circle">';
-                    html += '<img src="' + escapeHTML(iconSrc) + '" alt="' + escapeHTML(name) + '" loading="lazy" onerror="this.style.display=\'none\'">';
-                    html += '</div>';
+                    html += '<div class="icon-circle"><img src="' + escapeHTML(iconSrc) +
+                            '" alt="' + escapeHTML(name) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
                 }
-                html += '</div>';
-                html += '</div>';
+                html += '</div></div>';
                 return html;
             }
 
@@ -540,16 +487,13 @@
                 const url = linkData ? linkData.url : '';
                 const cls = 'name-slot' + (hasLink ? ' has-link' : ' empty-name');
                 let html = '<span class="' + cls + '"';
-                if (hasLink) {
-                    html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
-                }
+                if (hasLink) html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
                 html += '>' + escapeHTML(name) + '</span>';
                 return html;
             }
 
             function renderAll() {
                 updateMobileScale();
-
                 const config = getConfig();
                 const columns = config.columns;
                 const defaultRows = config.defaultRows;
@@ -557,36 +501,26 @@
                 const minSlots = Math.max(defaultRows * columns, totalLinks);
                 const rows = Math.ceil(minSlots / columns);
                 const totalSlots = rows * columns;
-
                 const allSlots = [];
-                for (let i = 0; i < totalSlots; i++) {
-                    allSlots.push(i < totalLinks ? linksData[i] : null);
-                }
+                for (let i = 0; i < totalSlots; i++) allSlots.push(i < totalLinks ? linksData[i] : null);
 
                 const contentArea = document.getElementById('contentArea');
                 let html = '';
-
                 for (let row = 0; row < rows; row++) {
                     const rowSlots = allSlots.slice(row * columns, (row + 1) * columns);
                     const directionClass = (row % 2 === 0) ? 'row-animate' : 'row-animate-reverse';
-
                     html += '<div class="row-group">';
                     html += '<div class="black-line"></div>';
                     html += '<div class="plates-row ' + directionClass + '">';
-                    for (let col = 0; col < columns; col++) {
-                        html += createPlateHTML(rowSlots[col] || null, row * columns + col);
-                    }
+                    for (let col = 0; col < columns; col++) html += createPlateHTML(rowSlots[col] || null, row * columns + col);
                     html += '</div>';
                     html += '<div class="black-line"></div>';
                     html += '<div class="gold-name-row">';
-                    for (let col = 0; col < columns; col++) {
-                        html += createNameHTML(rowSlots[col] || null);
-                    }
+                    for (let col = 0; col < columns; col++) html += createNameHTML(rowSlots[col] || null);
                     html += '</div>';
                     html += '<div class="black-line"></div>';
                     html += '</div>';
                 }
-
                 contentArea.innerHTML = html;
             }
 
@@ -598,7 +532,6 @@
                     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                    
                     for (let i = 1; i < rows.length; i++) {
                         const row = rows[i];
                         if (!row || row.length === 0) continue;
@@ -623,11 +556,8 @@
                 resizeTimeout = setTimeout(function() {
                     const isMobile = window.innerWidth <= 768;
                     const wasMobile = (document.documentElement.style.getPropertyValue('--columns') === '6');
-                    if (isMobile !== wasMobile) {
-                        renderAll();
-                    } else {
-                        updateMobileScale();
-                    }
+                    if (isMobile !== wasMobile) renderAll();
+                    else updateMobileScale();
                 }, 250);
             });
 
