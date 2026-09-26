@@ -264,31 +264,30 @@
         }
         .plate.empty-plate .icon-circle { display: none; }
 
-        /* ========== 图标精准对齐（根据调试固化） ========== */
-        /* 偏移量会随 --scale 等比缩放，桌面端与移动端均正确 */
+        /* ========== 图标精准对齐（偏移量固定像素，不再乘 --scale） ========== */
         .plate.style-1 .icon-circle {
-            left: calc(var(--icon-left) - 0.1px * var(--scale));
-            top:  calc(var(--icon-top)  - 0.6px * var(--scale));
+            left: calc(var(--icon-left) - 0.1px);
+            top:  calc(var(--icon-top)  - 0.6px);
         }
         .plate.style-2 .icon-circle {
-            left: calc(var(--icon-left) + 1.3px * var(--scale));
-            top:  calc(var(--icon-top)  - 0.6px * var(--scale));
+            left: calc(var(--icon-left) + 1.3px);
+            top:  calc(var(--icon-top)  - 0.6px);
         }
         .plate.style-3 .icon-circle {
-            left: calc(var(--icon-left) + 2.2px * var(--scale));
-            top:  calc(var(--icon-top)  - 0.6px * var(--scale));
+            left: calc(var(--icon-left) + 2.2px);
+            top:  calc(var(--icon-top)  - 0.6px);
         }
         .plate.style-4 .icon-circle {
-            left: calc(var(--icon-left) + 0.2px * var(--scale));
-            top:  calc(var(--icon-top)  - 0.4px * var(--scale));
+            left: calc(var(--icon-left) + 0.2px);
+            top:  calc(var(--icon-top)  - 0.4px);
         }
         .plate.style-5 .icon-circle {
-            left: calc(var(--icon-left) + 0.3px * var(--scale));
-            top:  calc(var(--icon-top)  - 1px   * var(--scale));
+            left: calc(var(--icon-left) + 0.3px);
+            top:  calc(var(--icon-top)  - 1px);
         }
         .plate.style-6 .icon-circle {
-            left: calc(var(--icon-left) + 1.3px * var(--scale));
-            top:  calc(var(--icon-top)  - 0.5px * var(--scale));
+            left: calc(var(--icon-left) + 1.3px);
+            top:  calc(var(--icon-top)  - 0.5px);
         }
 
         .gold-name-row {
