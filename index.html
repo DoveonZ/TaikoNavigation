@@ -23,6 +23,7 @@
             --gold-block-height: 10px;
             --gold-title-height: 52px;
             --gold-name-min-height: 36px;
+            --row-title-height: 34px;
             --columns: 12;
             --gap-h: 14px;
             --content-max-width: 1680px;
@@ -244,6 +245,40 @@
             margin-left: calc(50% - 50vw);
         }
 
+        /* ========== 分区行标题（data.xlsx 中 style 列写 linetitle 的行） ==========
+           分区里的图板与名字靠左排（行上加 .row-left），标题条本身仍是通栏、文字居中。
+           名字栏是通栏元素，负外边距让它相对内容区左移了 calc(50% - 50vw)；
+           这里用反向的 calc(50vw - 50%) 把内容推回内容区左边缘，才能与图板左边缘对齐。
+           标题条文字居中，不受这个左移影响，所以不需要补偿。 */
+        .row-title-bar {
+            height: var(--row-title-height);
+            background: var(--gold);
+            opacity: 0.92;
+            flex-shrink: 0;
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .row-title {
+            color: var(--white);
+            font-size: 1.05rem;
+            font-weight: 900;
+            letter-spacing: 0.16em;
+            padding: 0 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            user-select: none;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.45);
+        }
+        .plates-row.row-left { justify-content: flex-start; }
+        .gold-name-row.row-left {
+            justify-content: flex-start;
+            padding-left: calc(50vw - 50%);
+        }
+
         .plates-row {
             display: flex;
             flex-direction: row;
@@ -434,28 +469,25 @@
             }
             .plate.empty-plate { opacity: 0; }
             .name-slot { font-size: calc(8.4px * var(--scale)); letter-spacing: 0.02em; }
+            .row-title { font-size: calc(12px * var(--scale)); letter-spacing: 0.1em; padding: 0 6px; }
             .rope {
                 border-radius: calc(1.5px * var(--scale)) calc(1.5px * var(--scale)) 0 0;
                 margin-bottom: calc(-5px * var(--scale));
                 position: relative;
                 z-index: 1;
             }
-            /* 移动端标签栏固定像素，宽度不足时可横向滑动，同时保证高度可稳定测量 */
+            /* 移动端标签栏：沿用桌面端的水平居中 + 自动换行，只缩小尺寸。
+               这里以前写过 flex-start + 横向滚动，标题变短后整排会贴到左边，
+               所以不要再覆盖 justify-content / flex-wrap。
+               标签行数变多时，高度会被 updateMobileScale 实测并计入 --scale。 */
             .sheet-tabs {
-                justify-content: flex-start;
-                flex-wrap: nowrap;
-                overflow-x: auto;
                 gap: 4px;
                 padding: 4px 6px;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: none;
             }
-            .sheet-tabs::-webkit-scrollbar { display: none; }
             .sheet-tab {
                 font-size: 13px;
                 padding: 4px 12px;
                 border-width: 1.5px;
-                flex-shrink: 0;
             }
             .load-error { font-size: 13px; padding: 18px 12px; }
             .content-area { max-height: none; overflow: visible; padding-bottom: 0; }
@@ -480,9 +512,11 @@
     <script>
         (function() {
             /* data.xlsx 中每个工作表（Sheet）渲染为一个页面。
-               每张表的第 1 行为表头，其余行按列读取：name | url | desc | icon | style
-               工作表名即页面标签文字，增删工作表无需改动本文件。 */
-            const sheets = [];        // [{ name: 工作表名, links: [{ name, url, desc, icon, style }] }]
+               每张表的第 1 行为表头，其余行按列读取：name | url | desc | icon | style。
+               工作表名即页面标签文字，增删工作表无需改动本文件。
+               style 列写 linetitle 的行是"行标题"行：name 列写这一行的标题，
+               它同时是强制换行标记——标题单独占一行，其后的链接另起一行排布。 */
+            const sheets = [];        // [{ name: 工作表名, sections: [{ title, links: [...] }] }]
             let activeSheet = 0;      // 当前页面的工作表下标
             let lastIsMobile = null;  // 上一次渲染所依据的移动端判定，用于 resize 时决定是否重绘
 
@@ -601,6 +635,7 @@
                     root.style.setProperty('--gold-block-height', '10px');
                     root.style.setProperty('--gold-title-height', '52px');
                     root.style.setProperty('--gold-name-min-height', '36px');
+                    root.style.setProperty('--row-title-height', '34px');
                     root.style.setProperty('--gap-h', '14px');
                     applyIconOffsets(1);
                     return;
@@ -611,10 +646,19 @@
                     ropeWidth: 4, ropeHeight: 25,
                     thinBlack: 2.5, goldBlock: 8, titleHeight: 42,
                     nameMinHeight: 28, gapH: 7, ropeMarginBottom: 5,
+                    rowTitleHeight: 24,
                 };
                 const effectiveRope = BASE.ropeHeight - BASE.ropeMarginBottom;
                 const rowHeight = BASE.thinBlack + effectiveRope + BASE.plateHeight + BASE.thinBlack + BASE.nameMinHeight + BASE.thinBlack;
-                const totalContentHeight = 5 * rowHeight;
+                /* 分区行标题会额外占高：按当前页面实际的标题条数计入总高，避免把内容顶出屏幕 */
+                const activeData = sheets[activeSheet];
+                let titleCount = 0;
+                if (activeData && activeData.sections) {
+                    for (let i = 0; i < activeData.sections.length; i++) {
+                        if (activeData.sections[i].title) titleCount++;
+                    }
+                }
+                const totalContentHeight = 5 * rowHeight + titleCount * BASE.rowTitleHeight;
                 const tabBar = document.getElementById('sheetTabs');
                 const tabHeight = (tabBar && !tabBar.hidden) ? tabBar.offsetHeight : 0;
                 const totalHeaderFooter = BASE.goldBlock + BASE.titleHeight + BASE.goldBlock + tabHeight + BASE.goldBlock;
@@ -640,6 +684,7 @@
                 root.style.setProperty('--gold-block-height', `${BASE.goldBlock * scale}px`);
                 root.style.setProperty('--gold-title-height', `${BASE.titleHeight * scale}px`);
                 root.style.setProperty('--gold-name-min-height', `${BASE.nameMinHeight * scale}px`);
+                root.style.setProperty('--row-title-height', `${BASE.rowTitleHeight * scale}px`);
                 root.style.setProperty('--gap-h', `${BASE.gapH * scale}px`);
             }
 
@@ -733,7 +778,7 @@
                 if (updateHash !== false && currentHashName() !== sheets[index].name) {
                     window.location.hash = '#' + encodeURIComponent(sheets[index].name);
                 }
-                if (changed) renderGrid();
+                if (changed) renderAll();   // 行标题条数随页面不同，需要连同移动端缩放一起重算
             }
 
             /* ========== 页面内容 ========== */
@@ -748,36 +793,107 @@
                 const config = getConfig();
                 const columns = config.columns;
                 const defaultRows = config.defaultRows;
-                const linksData = sheet.links;
-                const totalLinks = linksData.length;
-                const minSlots = Math.max(defaultRows * columns, totalLinks);
-                const rows = Math.ceil(minSlots / columns);
-                const totalSlots = rows * columns;
-                const allSlots = [];
-                for (let i = 0; i < totalSlots; i++) allSlots.push(i < totalLinks ? linksData[i] : null);
 
                 let html = '';
-                for (let row = 0; row < rows; row++) {
-                    const rowSlots = allSlots.slice(row * columns, (row + 1) * columns);
-                    const directionClass = (row % 2 === 0) ? 'row-animate' : 'row-animate-reverse';
-                    html += '<div class="row-group">';
-                    html += '<div class="black-line"></div>';
-                    html += '<div class="plates-row ' + directionClass + '">';
-                    for (let col = 0; col < columns; col++) html += createPlateHTML(rowSlots[col] || null, row * columns + col);
-                    html += '</div>';
-                    html += '<div class="black-line"></div>';
-                    html += '<div class="gold-name-row">';
-                    for (let col = 0; col < columns; col++) html += createNameHTML(rowSlots[col] || null);
-                    html += '</div>';
-                    html += '<div class="black-line"></div>';
-                    html += '</div>';
-                }
+                let rowIndex = 0;      // 跨分区的行号，用于左右交替的入场动画
+                sheet.sections.forEach(function(section) {
+                    const linksData = section.links;
+
+                    if (!linksData.length) {
+                        // 只有标题、没有链接的分区：只画标题条，不占一整行空网格
+                        if (section.title) {
+                            html += '<div class="row-group">';
+                            html += '<div class="black-line"></div>';
+                            html += '<div class="row-title-bar"><span class="row-title">' + escapeHTML(section.title) + '</span></div>';
+                            html += '<div class="black-line"></div>';
+                            html += '</div>';
+                        }
+                        return;
+                    }
+
+                    // 带行标题的分区：换行由标题决定，每行最多 columns 个，不再补齐；
+                    // 没有标题的分区（普通工作表）沿用整页补齐 defaultRows 行的老规则
+                    const minSlots = section.title
+                        ? linksData.length
+                        : Math.max(defaultRows * columns, linksData.length);
+                    const rows = Math.ceil(minSlots / columns);
+
+                    for (let row = 0; row < rows; row++) {
+                        const rowSlots = [];
+                        for (let col = 0; col < columns; col++) {
+                            const idx = row * columns + col;
+                            rowSlots.push(idx < linksData.length ? linksData[idx] : null);
+                        }
+                        /* 带行标题的分区只排这一行的链接、不补空位：
+                           补空位会把整行撑得比容器还宽，内容被挤向左边，窄屏时还会被裁掉。
+                           没有标题的普通工作表仍按整行 columns 个占位，保持原有外观。 */
+                        const slotsInRow = section.title
+                            ? Math.min(columns, linksData.length - row * columns)
+                            : columns;
+                        const directionClass = (rowIndex % 2 === 0) ? 'row-animate' : 'row-animate-reverse';
+                        /* 分区行靠左排；没有标题的普通工作表保持原来的居中排版 */
+                        const alignClass = section.title ? ' row-left' : '';
+                        html += '<div class="row-group">';
+                        html += '<div class="black-line"></div>';
+                        if (row === 0 && section.title) {      // 行标题只出现在该分区的第一行
+                            html += '<div class="row-title-bar"><span class="row-title">' + escapeHTML(section.title) + '</span></div>';
+                        }
+                        html += '<div class="plates-row ' + directionClass + alignClass + '">';
+                        for (let col = 0; col < slotsInRow; col++) html += createPlateHTML(rowSlots[col], rowIndex * columns + col);
+                        html += '</div>';
+                        html += '<div class="black-line"></div>';
+                        html += '<div class="gold-name-row' + alignClass + '">';
+                        for (let col = 0; col < slotsInRow; col++) html += createNameHTML(rowSlots[col]);
+                        html += '</div>';
+                        html += '<div class="black-line"></div>';
+                        html += '</div>';
+                        rowIndex++;
+                    }
+                });
                 contentArea.innerHTML = html;
             }
 
             function renderAll() {
                 updateMobileScale();
                 renderGrid();
+            }
+
+            /* ========== 工作表 -> 分区 ========== */
+
+            /* style 列写 linetitle 的行为"行标题"行（不区分大小写，允许前后空格） */
+            function isLineTitleRow(styleValue) {
+                const text = (styleValue === null || styleValue === undefined) ? '' : String(styleValue);
+                return text.trim().toLowerCase() === 'linetitle';
+            }
+
+            /* 把一张工作表切成若干分区：每个分区 = 一个行标题（可为空）+ 该标题下的链接。
+               遇到 linetitle 行就强制收尾当前行，并开一个新分区。 */
+            function parseSections(rows) {
+                const sections = [];
+                let current = { title: null, links: [] };
+                sections.push(current);
+                for (let i = 1; i < rows.length; i++) {          // 第 1 行为表头
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+                    const name = (row[0] === null || row[0] === undefined) ? '' : String(row[0]);
+                    const url = (row[1] === null || row[1] === undefined) ? '' : String(row[1]);
+                    if (isLineTitleRow(row[4])) {                // 行标题：同时是强制换行标记
+                        current = { title: name.trim(), links: [] };
+                        sections.push(current);
+                        continue;
+                    }
+                    if (!name && !url) continue;                 // 跳过空行
+                    current.links.push({
+                        name: name,
+                        url: url,
+                        desc: row[2] || '',
+                        icon: row[3] || '',
+                        style: parseInt(row[4]) || 1
+                    });
+                }
+                return sections.filter(function(section) {
+                    return section.links.length > 0 || section.title;
+                });
             }
 
             /* 读取 data.xlsx 的全部工作表 */
@@ -789,22 +905,7 @@
                     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                     workbook.SheetNames.forEach(function(sheetName) {
                         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
-                        const links = [];
-                        for (let i = 1; i < rows.length; i++) {   // 第 1 行为表头
-                            const row = rows[i];
-                            if (!row || row.length === 0) continue;
-                            const name = row[0] || '';
-                            const url = row[1] || '';
-                            if (!name && !url) continue;          // 跳过空行
-                            links.push({
-                                name: name,
-                                url: url,
-                                desc: row[2] || '',
-                                icon: row[3] || '',
-                                style: parseInt(row[4]) || 1
-                            });
-                        }
-                        sheets.push({ name: sheetName, links: links });
+                        sheets.push({ name: sheetName, sections: parseSections(rows) });
                     });
                     const fromHash = sheets.findIndex(function(sheet) { return sheet.name === currentHashName(); });
                     activeSheet = fromHash >= 0 ? fromHash : 0;
