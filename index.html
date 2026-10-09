@@ -28,6 +28,19 @@
             --content-max-width: 1680px;
             --bg-image: url('img/background.png');
             --scale: 1;
+
+            /* 图标微调偏移：下标 1~6 对应底板样式 .plate.style-1 ~ .plate.style-6。
+               下面这组只是脚本未执行时的兜底值（= PC 端数值，--scale 恒为 1）。
+               运行时的实际数值来自脚本里的 DEFAULT_ICON_OFFSETS：
+               PC 端与移动端各一组，单位是"底板基准像素"，由脚本乘以 --scale 后
+               写入这几个变量，因此移动端换屏幕尺寸时偏移量会等比缩放。
+               数值可用 Ctrl+Shift+P 调试面板现场校准（见文件末尾的调试脚本）。 */
+            --icon-dx-1: -0.1px;  --icon-dy-1: -0.6px;
+            --icon-dx-2: 1.3px;   --icon-dy-2: -0.6px;
+            --icon-dx-3: 2.2px;   --icon-dy-3: -0.6px;
+            --icon-dx-4: 0.2px;   --icon-dy-4: -0.4px;
+            --icon-dx-5: 0.3px;   --icon-dy-5: -1px;
+            --icon-dx-6: 1.3px;   --icon-dy-6: -0.5px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -97,6 +110,72 @@
             letter-spacing: 0.1em;
             text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5);
             user-select: none;
+        }
+
+        /* ========== 多页面（工作表）切换标签栏 ========== */
+        .tabs-bar {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+        .sheet-tabs {
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            background: var(--gold);
+            opacity: 0.92;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 6px 12px;
+            flex-shrink: 0;
+        }
+        .sheet-tabs[hidden] { display: none; }
+
+        .sheet-tab {
+            appearance: none;
+            -webkit-appearance: none;
+            border: 2px solid rgba(0, 0, 0, 0.35);
+            background: rgba(0, 0, 0, 0.18);
+            color: var(--white);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            line-height: 1.2;
+            padding: 5px 20px;
+            border-radius: 999px;
+            cursor: pointer;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.35);
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .sheet-tab:hover { background: rgba(0, 0, 0, 0.4); }
+        .sheet-tab.active {
+            background: var(--black);
+            border-color: var(--black);
+            color: var(--gold);
+            text-shadow: none;
+        }
+        .sheet-tab:focus-visible {
+            outline: 2px solid var(--white);
+            outline-offset: 2px;
+        }
+
+        .load-error {
+            width: 100vw;
+            margin-left: calc(50% - 50vw);
+            background: rgba(0, 0, 0, 0.62);
+            color: var(--white);
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-align: center;
+            padding: 28px 16px;
         }
 
         .content-area {
@@ -264,31 +343,16 @@
         }
         .plate.empty-plate .icon-circle { display: none; }
 
-        /* ========== 图标精准对齐（偏移量固定像素，不再乘 --scale） ========== */
-        .plate.style-1 .icon-circle {
-            left: calc(var(--icon-left) - 0.1px);
-            top:  calc(var(--icon-top)  - 0.6px);
-        }
-        .plate.style-2 .icon-circle {
-            left: calc(var(--icon-left) + 1.3px);
-            top:  calc(var(--icon-top)  - 0.6px);
-        }
-        .plate.style-3 .icon-circle {
-            left: calc(var(--icon-left) + 2.2px);
-            top:  calc(var(--icon-top)  - 0.6px);
-        }
-        .plate.style-4 .icon-circle {
-            left: calc(var(--icon-left) + 0.2px);
-            top:  calc(var(--icon-top)  - 0.4px);
-        }
-        .plate.style-5 .icon-circle {
-            left: calc(var(--icon-left) + 0.3px);
-            top:  calc(var(--icon-top)  - 1px);
-        }
-        .plate.style-6 .icon-circle {
-            left: calc(var(--icon-left) + 1.3px);
-            top:  calc(var(--icon-top)  - 0.5px);
-        }
+        /* ========== 图标精准对齐 ==========
+           --icon-dx-N / --icon-dy-N 是各底板样式的图标微调量（已由脚本按 --scale 换算成像素），
+           直接叠加在 --icon-left / --icon-top 上。PC 端与移动端各有一组数值，
+           由脚本按窗口宽度自动切换。 */
+        .plate.style-1 .icon-circle { left: calc(var(--icon-left) + var(--icon-dx-1)); top: calc(var(--icon-top) + var(--icon-dy-1)); }
+        .plate.style-2 .icon-circle { left: calc(var(--icon-left) + var(--icon-dx-2)); top: calc(var(--icon-top) + var(--icon-dy-2)); }
+        .plate.style-3 .icon-circle { left: calc(var(--icon-left) + var(--icon-dx-3)); top: calc(var(--icon-top) + var(--icon-dy-3)); }
+        .plate.style-4 .icon-circle { left: calc(var(--icon-left) + var(--icon-dx-4)); top: calc(var(--icon-top) + var(--icon-dy-4)); }
+        .plate.style-5 .icon-circle { left: calc(var(--icon-left) + var(--icon-dx-5)); top: calc(var(--icon-top) + var(--icon-dy-5)); }
+        .plate.style-6 .icon-circle { left: calc(var(--icon-left) + var(--icon-dx-6)); top: calc(var(--icon-top) + var(--icon-dy-6)); }
 
         .gold-name-row {
             background: var(--gold);
@@ -339,6 +403,11 @@
             background: var(--gold);
             opacity: 0.92;
             flex-shrink: 0;
+            /* .main-container 是 align-items:center 的纵向 flex 容器，若不指定对齐方式，
+               这条 100vw 的通栏金条会先被居中、再叠加 calc(50% - 50vw) 的负外边距，
+               等于偏移了两次，右端会短一截。固定到 flex-start 后，
+               与 .header / .tabs-bar 内部的通栏元素用同一套算法，三者左右完全对齐。 */
+            align-self: flex-start;
             width: 100vw;
             margin-left: calc(50% - 50vw);
         }
@@ -371,6 +440,24 @@
                 position: relative;
                 z-index: 1;
             }
+            /* 移动端标签栏固定像素，宽度不足时可横向滑动，同时保证高度可稳定测量 */
+            .sheet-tabs {
+                justify-content: flex-start;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                gap: 4px;
+                padding: 4px 6px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .sheet-tabs::-webkit-scrollbar { display: none; }
+            .sheet-tab {
+                font-size: 13px;
+                padding: 4px 12px;
+                border-width: 1.5px;
+                flex-shrink: 0;
+            }
+            .load-error { font-size: 13px; padding: 18px 12px; }
             .content-area { max-height: none; overflow: visible; padding-bottom: 0; }
         }
     </style>
@@ -383,16 +470,121 @@
             <div class="gold-bar title-bar">TaikoNavigation</div>
             <div class="gold-bar thin"></div>
         </header>
-        <div class="content-area" id="contentArea"></div>
+        <div class="tabs-bar">
+            <nav class="sheet-tabs" id="sheetTabs" role="tablist" aria-label="页面切换" hidden></nav>
+        </div>
+        <div class="content-area" id="contentArea" role="tabpanel"></div>
         <div class="footer-gold"></div>
     </div>
 
     <script>
         (function() {
-            const linksData = [];
+            /* data.xlsx 中每个工作表（Sheet）渲染为一个页面。
+               每张表的第 1 行为表头，其余行按列读取：name | url | desc | icon | style
+               工作表名即页面标签文字，增删工作表无需改动本文件。 */
+            const sheets = [];        // [{ name: 工作表名, links: [{ name, url, desc, icon, style }] }]
+            let activeSheet = 0;      // 当前页面的工作表下标
+            let lastIsMobile = null;  // 上一次渲染所依据的移动端判定，用于 resize 时决定是否重绘
+
+            /* ========== 图标微调偏移量表 ==========
+               dx / dy 的单位是"底板基准像素"：脚本会乘以当前 --scale 后写入
+               --icon-dx-N / --icon-dy-N，因此移动端在不同屏幕缩放下偏移比例保持一致
+               （PC 端 --scale 恒为 1，等价于固定像素）。
+               数组下标 0~5 对应底板样式 .plate.style-1 ~ .plate.style-6。
+               pc     ：PC 端手工校准值，保持既有渲染结果，请勿随意改动。
+               mobile ：移动端数值。初值按"图标圆心在底板中的相对位置不变"由 PC 值换算而来，
+                        实际数值用 Ctrl+Shift+P 调试面板量出后替换即可（面板按 O 输出可直接粘贴）。 */
+            const DEFAULT_ICON_OFFSETS = {
+                pc: [
+                    { dx: -0.1, dy: -0.6 },   // style-1
+                    { dx: 1.3,  dy: -0.6 },   // style-2
+                    { dx: 2.2,  dy: -0.6 },   // style-3
+                    { dx: 0.2,  dy: -0.4 },   // style-4
+                    { dx: 0.3,  dy: -1.0 },   // style-5
+                    { dx: 1.3,  dy: -0.5 }    // style-6
+                ],
+                mobile: [
+                    { dx: -0.1, dy: 0.7 },    // style-1
+                    { dx: 0.7,  dy: 0.7 },    // style-2
+                    { dx: 1.2,  dy: 0.7 },    // style-3
+                    { dx: 0.1,  dy: 0.8 },    // style-4
+                    { dx: 0.2,  dy: 0.4 },    // style-5
+                    { dx: 0.7,  dy: 0.7 }     // style-6
+                ]
+            };
+            const ICON_OFFSET_STORAGE_KEY = 'taiko.iconOffsets.v1';
+            const ICON_OFFSET_LIMIT = 50;   // 单项绝对值上限，避免误操作把图标推出底板
+            const iconOffsets = loadIconOffsets();
+
+            function cloneOffsetList(list) {
+                return list.map(function(p) { return { dx: p.dx, dy: p.dy }; });
+            }
+
+            function normalizeOffset(value, fallback) {
+                const num = Number(value);
+                if (!isFinite(num)) return fallback;
+                return Math.max(-ICON_OFFSET_LIMIT, Math.min(ICON_OFFSET_LIMIT, Math.round(num * 100) / 100));
+            }
+
+            /* 读取本地调试缓存（调试面板会把现场校准值存在这里），合并到默认值之上 */
+            function loadIconOffsets() {
+                const data = {
+                    pc: cloneOffsetList(DEFAULT_ICON_OFFSETS.pc),
+                    mobile: cloneOffsetList(DEFAULT_ICON_OFFSETS.mobile)
+                };
+                try {
+                    const raw = window.localStorage.getItem(ICON_OFFSET_STORAGE_KEY);
+                    if (!raw) return data;
+                    const saved = JSON.parse(raw);
+                    ['pc', 'mobile'].forEach(function(mode) {
+                        const list = saved ? saved[mode] : null;
+                        if (!list || typeof list.length !== 'number') return;
+                        for (let i = 0; i < data[mode].length; i++) {
+                            const item = list[i];
+                            if (!item) continue;
+                            data[mode][i].dx = normalizeOffset(item.dx, data[mode][i].dx);
+                            data[mode][i].dy = normalizeOffset(item.dy, data[mode][i].dy);
+                        }
+                    });
+                } catch (e) {
+                    console.warn('读取图标偏移缓存失败，改用默认值', e);
+                }
+                return data;
+            }
+
+            function saveIconOffsets() {
+                try {
+                    window.localStorage.setItem(ICON_OFFSET_STORAGE_KEY, JSON.stringify(iconOffsets));
+                } catch (e) {
+                    /* 无痕模式等场景下 localStorage 不可写，忽略即可 */
+                }
+            }
+
+            /* 当前该用 PC 还是移动端那组数值：与 updateMobileScale / getConfig 同一判定 */
+            function iconOffsetMode() {
+                return window.innerWidth <= 768 ? 'mobile' : 'pc';
+            }
+
+            function currentScaleValue() {
+                const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale'));
+                return (isFinite(value) && value > 0) ? value : 1;
+            }
+
+            /* 把当前模式下的偏移量（基准像素 × --scale）写进 CSS 变量。
+               scale 由 updateMobileScale 传入；不传则读取当前 --scale。 */
+            function applyIconOffsets(scale) {
+                const s = (typeof scale === 'number' && isFinite(scale) && scale > 0) ? scale : currentScaleValue();
+                const list = iconOffsets[iconOffsetMode()];
+                const rootStyle = document.documentElement.style;
+                for (let i = 0; i < list.length; i++) {
+                    rootStyle.setProperty('--icon-dx-' + (i + 1), (Math.round(list[i].dx * s * 1000) / 1000) + 'px');
+                    rootStyle.setProperty('--icon-dy-' + (i + 1), (Math.round(list[i].dy * s * 1000) / 1000) + 'px');
+                }
+            }
 
             function updateMobileScale() {
                 const isMobile = window.innerWidth <= 768;
+                lastIsMobile = isMobile;
                 const root = document.documentElement;
                 if (!isMobile) {
                     root.style.setProperty('--scale', '1');
@@ -410,6 +602,7 @@
                     root.style.setProperty('--gold-title-height', '52px');
                     root.style.setProperty('--gold-name-min-height', '36px');
                     root.style.setProperty('--gap-h', '14px');
+                    applyIconOffsets(1);
                     return;
                 }
                 const BASE = {
@@ -422,7 +615,9 @@
                 const effectiveRope = BASE.ropeHeight - BASE.ropeMarginBottom;
                 const rowHeight = BASE.thinBlack + effectiveRope + BASE.plateHeight + BASE.thinBlack + BASE.nameMinHeight + BASE.thinBlack;
                 const totalContentHeight = 5 * rowHeight;
-                const totalHeaderFooter = BASE.goldBlock + BASE.titleHeight + BASE.goldBlock + BASE.goldBlock;
+                const tabBar = document.getElementById('sheetTabs');
+                const tabHeight = (tabBar && !tabBar.hidden) ? tabBar.offsetHeight : 0;
+                const totalHeaderFooter = BASE.goldBlock + BASE.titleHeight + BASE.goldBlock + tabHeight + BASE.goldBlock;
                 const totalHeightBase = totalContentHeight + totalHeaderFooter;
                 const totalWidthBase = BASE.plateWidth * 6 + BASE.gapH * 5 + 12;
                 const vh = window.innerHeight, vw = window.innerWidth;
@@ -431,6 +626,7 @@
                 const scale = Math.min(scaleH, scaleW, 1.5);
 
                 root.style.setProperty('--scale', scale);
+                applyIconOffsets(scale);
                 root.style.setProperty('--plate-width', `${BASE.plateWidth * scale}px`);
                 root.style.setProperty('--plate-height', `${BASE.plateHeight * scale}px`);
                 root.style.setProperty('--sprite-bg-width', `${BASE.plateWidth * 6 * scale}px`);
@@ -491,11 +687,68 @@
                 return html;
             }
 
-            function renderAll() {
-                updateMobileScale();
+            /* ========== 页面标签 ========== */
+
+            function renderTabs() {
+                const tabBar = document.getElementById('sheetTabs');
+                if (!tabBar) return;
+                if (sheets.length <= 1) {   // 只有一个工作表时无需分页
+                    tabBar.hidden = true;
+                    tabBar.innerHTML = '';
+                    return;
+                }
+                tabBar.hidden = false;
+                tabBar.innerHTML = sheets.map(function(sheet, index) {
+                    const on = index === activeSheet;
+                    return '<button type="button" class="sheet-tab' + (on ? ' active' : '') +
+                           '" role="tab" data-index="' + index +
+                           '" aria-controls="contentArea" aria-selected="' + (on ? 'true' : 'false') +
+                           '">' + escapeHTML(sheet.name) + '</button>';
+                }).join('');
+            }
+
+            function updateTabState() {
+                const tabBar = document.getElementById('sheetTabs');
+                if (!tabBar) return;
+                const tabs = tabBar.querySelectorAll('.sheet-tab');
+                for (let i = 0; i < tabs.length; i++) {
+                    const on = i === activeSheet;
+                    tabs[i].classList.toggle('active', on);
+                    tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+                }
+            }
+
+            function currentHashName() {
+                let raw = window.location.hash || '';
+                if (raw.charAt(0) === '#') raw = raw.slice(1);
+                try { return decodeURIComponent(raw); } catch (e) { return raw; }
+            }
+
+            /* 切换页面：updateHash 为 false 时不再回写地址栏（由 hashchange 触发时使用） */
+            function activateSheet(index, updateHash) {
+                if (!(index >= 0 && index < sheets.length)) return;
+                const changed = index !== activeSheet;
+                activeSheet = index;
+                updateTabState();
+                if (updateHash !== false && currentHashName() !== sheets[index].name) {
+                    window.location.hash = '#' + encodeURIComponent(sheets[index].name);
+                }
+                if (changed) renderGrid();
+            }
+
+            /* ========== 页面内容 ========== */
+
+            function renderGrid() {
+                const contentArea = document.getElementById('contentArea');
+                const sheet = sheets[activeSheet];
+                if (!sheet) {
+                    contentArea.innerHTML = '<div class="load-error">无法加载 data.xlsx，请确认该文件与本页面位于同一目录。</div>';
+                    return;
+                }
                 const config = getConfig();
                 const columns = config.columns;
                 const defaultRows = config.defaultRows;
+                const linksData = sheet.links;
                 const totalLinks = linksData.length;
                 const minSlots = Math.max(defaultRows * columns, totalLinks);
                 const rows = Math.ceil(minSlots / columns);
@@ -503,7 +756,6 @@
                 const allSlots = [];
                 for (let i = 0; i < totalSlots; i++) allSlots.push(i < totalLinks ? linksData[i] : null);
 
-                const contentArea = document.getElementById('contentArea');
                 let html = '';
                 for (let row = 0; row < rows; row++) {
                     const rowSlots = allSlots.slice(row * columns, (row + 1) * columns);
@@ -523,39 +775,77 @@
                 contentArea.innerHTML = html;
             }
 
+            function renderAll() {
+                updateMobileScale();
+                renderGrid();
+            }
+
+            /* 读取 data.xlsx 的全部工作表 */
             (async function loadData() {
                 try {
                     const response = await fetch('data.xlsx');
                     if (!response.ok) throw new Error('Network error');
                     const arrayBuffer = await response.arrayBuffer();
                     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                    for (let i = 1; i < rows.length; i++) {
-                        const row = rows[i];
-                        if (!row || row.length === 0) continue;
-                        linksData.push({
-                            name: row[0] || '',
-                            url:  row[1] || '',
-                            desc: row[2] || '',
-                            icon: row[3] || '',
-                            style: parseInt(row[4]) || 1
-                        });
-                    }
+                    workbook.SheetNames.forEach(function(sheetName) {
+                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+                        const links = [];
+                        for (let i = 1; i < rows.length; i++) {   // 第 1 行为表头
+                            const row = rows[i];
+                            if (!row || row.length === 0) continue;
+                            const name = row[0] || '';
+                            const url = row[1] || '';
+                            if (!name && !url) continue;          // 跳过空行
+                            links.push({
+                                name: name,
+                                url: url,
+                                desc: row[2] || '',
+                                icon: row[3] || '',
+                                style: parseInt(row[4]) || 1
+                            });
+                        }
+                        sheets.push({ name: sheetName, links: links });
+                    });
+                    const fromHash = sheets.findIndex(function(sheet) { return sheet.name === currentHashName(); });
+                    activeSheet = fromHash >= 0 ? fromHash : 0;
                 } catch (e) {
                     console.error('加载 data.xlsx 出错', e);
                 } finally {
+                    renderTabs();
                     renderAll();
                 }
             })();
+
+            const tabBar = document.getElementById('sheetTabs');
+            if (tabBar) {
+                tabBar.addEventListener('click', function(e) {
+                    const btn = e.target.closest ? e.target.closest('.sheet-tab') : null;
+                    if (!btn) return;
+                    activateSheet(parseInt(btn.getAttribute('data-index'), 10), true);
+                });
+                tabBar.addEventListener('keydown', function(e) {
+                    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                    if (!sheets.length) return;
+                    e.preventDefault();
+                    const step = e.key === 'ArrowRight' ? 1 : -1;
+                    const next = (activeSheet + step + sheets.length) % sheets.length;
+                    activateSheet(next, true);
+                    const btn = tabBar.querySelector('.sheet-tab[data-index="' + next + '"]');
+                    if (btn) btn.focus();
+                });
+            }
+
+            window.addEventListener('hashchange', function() {
+                const index = sheets.findIndex(function(sheet) { return sheet.name === currentHashName(); });
+                if (index >= 0 && index !== activeSheet) activateSheet(index, false);
+            });
 
             let resizeTimeout;
             window.addEventListener('resize', function() {
                 clearTimeout(resizeTimeout);
                 resizeTimeout = setTimeout(function() {
                     const isMobile = window.innerWidth <= 768;
-                    const wasMobile = (document.documentElement.style.getPropertyValue('--columns') === '6');
-                    if (isMobile !== wasMobile) renderAll();
+                    if (isMobile !== lastIsMobile) renderAll();   // 行列数变化，需要重绘
                     else updateMobileScale();
                 }, 250);
             });
@@ -565,6 +855,754 @@
                     e.target.style.display = 'none';
                 }
             }, true);
+
+            /* ========== 调试接口 ==========
+               供文件末尾的 Ctrl+Shift+P 调试面板读写偏移量表；正常浏览时不会被调用。 */
+            window.TAIKO_ICON_DEBUG = {
+                storageKey: ICON_OFFSET_STORAGE_KEY,
+                styleCount: 6,
+                defaults: DEFAULT_ICON_OFFSETS,
+                mode: iconOffsetMode,
+                get: function() { return iconOffsets; },
+                apply: applyIconOffsets,
+                save: saveIconOffsets,
+                /* 在指定模式下把某个样式再挪动 (ddx, ddy)，返回调整后的值 */
+                nudge: function(mode, index, ddx, ddy) {
+                    const list = iconOffsets[mode];
+                    const item = list ? list[index] : null;
+                    if (!item) return null;
+                    item.dx = normalizeOffset(item.dx + ddx, item.dx);
+                    item.dy = normalizeOffset(item.dy + ddy, item.dy);
+                    return item;
+                },
+                /* index 为 null / undefined 时重置该模式下的全部样式 */
+                reset: function(mode, index) {
+                    if (!iconOffsets[mode]) return;
+                    if (index === null || index === undefined) {
+                        iconOffsets[mode] = cloneOffsetList(DEFAULT_ICON_OFFSETS[mode]);
+                        return;
+                    }
+                    const src = DEFAULT_ICON_OFFSETS[mode][index];
+                    if (!src) return;
+                    iconOffsets[mode][index] = { dx: src.dx, dy: src.dy };
+                }
+            };
+        })();
+    </script>
+
+    <script>
+        /* ==========================================================================
+           图标偏移调试工具（校准用；随 index.html 一起加载，未开启时不介入任何渲染）
+
+           开启 / 关闭：
+             · Ctrl + Shift + P     —— 焦点要在页面上（不要点在 DevTools 里，那里会打开命令菜单）
+             · 网址后加 ?icondebug=1 —— 快捷键被系统/浏览器占用时的备用入口
+
+           键位：
+             1 ~ 6           切换要校准的底板种类 .plate.style-1 ~ .plate.style-6
+             ↑ ↓ ← →         按 0.1px 微调图标坐标（单位 = 底板基准像素）
+             Shift + 方向键   1px 粗调          Ctrl + 方向键   0.01px 极细调
+             Z 放大镜倍数   M 平滑/像素采样   T 图标半透明   H 压暗其它种类
+             O 输出结果（控制台 + 面板 + 尝试复制）      R 重置当前种类（Shift+R 重置本模式全部）
+             U 撤销上一次重置      Esc 关闭面板
+
+           怎么用：
+             面板里的放大镜把选中的底板样式放大若干倍，品红线是图标圆外框、青线是它的中心，
+             对照底板贴图里凹槽的位置按方向键挪到对齐为止，再按 O 输出。
+             输出里的 mobile / pc 数组就是写完要替换进 index.html 中 DEFAULT_ICON_OFFSETS 的内容。
+             调试数值会缓存在 localStorage（键名 taiko.iconOffsets.v1），按 R 可还原；
+             写回文件后可按输出末尾提示的那行 removeItem 清掉缓存。
+           ========================================================================== */
+        (function() {
+            'use strict';
+
+            const BRIDGE = window.TAIKO_ICON_DEBUG;
+            if (!BRIDGE) return;
+
+            const STYLE_COUNT = BRIDGE.styleCount || 6;
+            const ZOOMS = [3, 6, 10, 16];
+            const MODE_LABEL = { pc: 'PC 端', mobile: '移动端' };
+            const STEP_NORMAL = 0.1;
+            const STEP_COARSE = 1;
+            const STEP_FINE = 0.01;
+            const LOUPE_INTERVAL = 60;   // 放大镜刷新间隔(ms)
+
+            const state = {
+                on: false,
+                styleIndex: 0,
+                zoomIndex: 1,
+                smooth: true,
+                ghost: false,
+                dim: true,
+                hasOutput: false
+            };
+
+            let panel = null;
+            let canvas = null;
+            let ctx = null;
+            let rowMode = null;
+            let rowStyle = null;
+            let rowValue = null;
+            let rowDefault = null;
+            let statusEl = null;
+            let outWrap = null;
+            let outArea = null;
+            let loupeHint = null;
+            let probeHost = null;
+            let probeStyle = -1;
+            let sprite = null;
+            let rafId = 0;
+            let lastDraw = 0;
+            let statusTimer = 0;
+            let sampleIsProbe = false;
+            let observer = null;
+            let undoSnapshot = null;   // 最近一次"重置"之前的数值，按 U 恢复
+
+            /* ---------------- 取值与格式化 ---------------- */
+
+            function mode() { return BRIDGE.mode(); }
+            function offsetsOf(m) { return BRIDGE.get()[m]; }
+            function currentOffset() { return offsetsOf(mode())[state.styleIndex]; }
+            function defaultsOf(m) { return BRIDGE.defaults[m]; }
+
+            function isDirty(m, index) {
+                const item = offsetsOf(m)[index];
+                const base = defaultsOf(m)[index];
+                return Math.abs(item.dx - base.dx) > 1e-4 || Math.abs(item.dy - base.dy) > 1e-4;
+            }
+
+            function currentScale() {
+                const value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale'));
+                return (isFinite(value) && value > 0) ? value : 1;
+            }
+
+            function trim(value) {
+                return String(Math.round(value * 100) / 100);
+            }
+
+            function signed(value, digits) {
+                const d = (digits === undefined) ? 2 : digits;
+                return (value > 0 ? '+' : '') + value.toFixed(d);
+            }
+
+            function setStatus(msg) {
+                if (!statusEl) return;
+                statusEl.textContent = msg;
+                statusEl.classList.add('show');
+                clearTimeout(statusTimer);
+                statusTimer = setTimeout(function() { statusEl.classList.remove('show'); }, 3000);
+            }
+
+            function isEditableTarget() {
+                const el = document.activeElement;
+                if (!el) return false;
+                if (el.tagName === 'INPUT') return true;
+                if (el.tagName === 'TEXTAREA') return el.readOnly !== true;
+                return el.isContentEditable === true;
+            }
+
+            /* ---------------- 面板与样式 ---------------- */
+
+            function injectStyle() {
+                if (document.getElementById('taikoIconDebugStyle')) return;
+                const style = document.createElement('style');
+                style.id = 'taikoIconDebugStyle';
+                style.textContent = [
+                    '#taikoIconDebug{position:fixed;right:10px;bottom:10px;z-index:2147483000;width:300px;',
+                    'max-width:calc(100vw - 20px);max-height:calc(100vh - 20px);overflow:auto;-webkit-overflow-scrolling:touch;',
+                    'background:rgba(9,12,17,.94);color:#e6eef7;border:1px solid rgba(110,190,255,.45);border-radius:10px;',
+                    'padding:9px 10px 10px;font:12px/1.45 ui-monospace,Consolas,Menlo,"Courier New",monospace;',
+                    'box-shadow:0 10px 30px rgba(0,0,0,.6);text-align:left;}',
+                    '#taikoIconDebug *{box-sizing:border-box;}',
+                    '#taikoIconDebug h4{margin:0 0 6px;font-size:12px;font-weight:700;color:#79d9ff;letter-spacing:.04em;}',
+                    '#taikoIconDebug h4 span{float:right;color:#7f93a8;font-weight:400;font-size:11px;}',
+                    '#taikoIconDebug .row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:5px 0;font-size:11.5px;}',
+                    '#taikoIconDebug .k{color:#8fa6bb;}',
+                    '#taikoIconDebug .v{color:#ffd479;font-weight:700;}',
+                    '#taikoIconDebug .v.dirty{color:#ff9a52;}',
+                    '#taikoIconDebug .chip{cursor:pointer;border:1px solid #3d5568;border-radius:6px;padding:1px 6px;color:#c8d8e6;}',
+                    '#taikoIconDebug .chip.active{background:#0a84ff;border-color:#0a84ff;color:#fff;}',
+                    '#taikoIconDebug .chip.dirty::after{content:"*";color:#ff9a52;}',
+                    '#taikoIconDebug button{cursor:pointer;font:inherit;font-size:11.5px;color:#dbe9f6;background:#1b242e;',
+                    'border:1px solid #3d5568;border-radius:6px;padding:3px 8px;}',
+                    '#taikoIconDebug button:hover{background:#25313d;}',
+                    '#taikoIconDebug .loupe{position:relative;margin:7px 0 2px;}',
+                    '#taikoIconDebug canvas{display:block;width:100%;height:210px;background:#0d1218;border:1px solid #2d3f4f;border-radius:6px;}',
+                    '#taikoIconDebug .loupe-hint{position:absolute;left:6px;top:4px;font-size:11px;color:#9fd0ff;text-shadow:0 1px 3px #000;pointer-events:none;}',
+                    '#taikoIconDebug .keys{font-size:10.5px;color:#93a7b9;line-height:1.55;}',
+                    '#taikoIconDebug .status{font-size:11px;color:#8ce99a;min-height:15px;opacity:0;transition:opacity .18s;}',
+                    '#taikoIconDebug .status.show{opacity:1;}',
+                    '#taikoIconDebug textarea{width:100%;height:132px;margin-top:4px;font:11px/1.45 ui-monospace,Consolas,monospace;',
+                    'color:#d5ecff;background:#0b1016;border:1px solid #2d3f4f;border-radius:6px;padding:5px;resize:vertical;}',
+                    'body.taiko-icon-debug .plate .icon-circle{outline:1px dashed rgba(255,64,200,.7);}',
+                    'body.taiko-icon-debug .plate[data-dbg-sel="1"]{outline:2px solid rgba(0,229,255,.85);outline-offset:-2px;z-index:40;}',
+                    'body.taiko-icon-debug .plate[data-dbg-sel="1"] .icon-circle{outline:2px solid #ff40c8;}',
+                    'body.taiko-icon-debug.taiko-dbg-dim .plate:not([data-dbg-sel="1"]){opacity:.4;}',
+                    'body.taiko-icon-debug.taiko-dbg-ghost .plate .icon-circle img{opacity:.4;}'
+                ].join('');
+                document.head.appendChild(style);
+            }
+
+            function buildPanel() {
+                injectStyle();
+                panel = document.createElement('div');
+                panel.id = 'taikoIconDebug';
+                panel.setAttribute('role', 'group');
+                panel.setAttribute('aria-label', '图标偏移调试面板');
+                panel.innerHTML = [
+                    '<h4>图标偏移调试<span>Ctrl+Shift+P / Esc</span></h4>',
+                    '<div class="row" id="dbgRowMode"></div>',
+                    '<div class="row" id="dbgRowStyle"></div>',
+                    '<div class="row" id="dbgRowValue"></div>',
+                    '<div class="row" id="dbgRowDefault"></div>',
+                    '<div class="loupe"><canvas id="dbgCanvas"></canvas><div class="loupe-hint" id="dbgLoupeHint"></div></div>',
+                    '<div class="keys">1-6 选种类 · ↑↓←→ 0.1px · Shift 1px · Ctrl 0.01px<br>',
+                    'Z 缩放 · M 平滑 · T 半透明 · H 压暗 · O 输出 · R 重置 · U 撤销</div>',
+                    '<div class="row"><button type="button" data-act="output">输出 (O)</button>',
+                    '<button type="button" data-act="copy">复制</button>',
+                    '<button type="button" data-act="download">下载 txt</button></div>',
+                    '<div class="row"><button type="button" data-act="reset-one">重置本种类 (R)</button>',
+                    '<button type="button" data-act="reset-all">重置本模式全部</button>',
+                    '<button type="button" data-act="close">关闭</button></div>',
+                    '<div class="status" id="dbgStatus"></div>',
+                    '<div id="dbgOutWrap" hidden><textarea id="dbgOut" readonly spellcheck="false"></textarea></div>'
+                ].join('');
+                document.body.appendChild(panel);
+
+                canvas = panel.querySelector('#dbgCanvas');
+                ctx = canvas.getContext('2d');
+                rowMode = panel.querySelector('#dbgRowMode');
+                rowStyle = panel.querySelector('#dbgRowStyle');
+                rowValue = panel.querySelector('#dbgRowValue');
+                rowDefault = panel.querySelector('#dbgRowDefault');
+                statusEl = panel.querySelector('#dbgStatus');
+                outWrap = panel.querySelector('#dbgOutWrap');
+                outArea = panel.querySelector('#dbgOut');
+                loupeHint = panel.querySelector('#dbgLoupeHint');
+
+                rowStyle.addEventListener('click', function(e) {
+                    const chip = e.target && e.target.closest ? e.target.closest('.chip') : null;
+                    if (!chip) return;
+                    selectStyle(parseInt(chip.getAttribute('data-style'), 10) - 1);
+                });
+
+                panel.addEventListener('click', function(e) {
+                    const btn = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
+                    if (!btn) return;
+                    const act = btn.getAttribute('data-act');
+                    if (act === 'output') doOutput();
+                    else if (act === 'copy') copyOutput();
+                    else if (act === 'download') downloadOutput();
+                    else if (act === 'reset-one') resetOne();
+                    else if (act === 'reset-all') resetAll();
+                    else if (act === 'close') disable();
+                });
+            }
+
+            function renderPanel() {
+                if (!panel) return;
+                const m = mode();
+                const scale = currentScale();
+                const item = currentOffset();
+                const index = state.styleIndex;
+
+                rowMode.innerHTML = '<span class="k">模式</span><span class="v">' + MODE_LABEL[m] + '</span>' +
+                    '<span class="k">视口</span>' + window.innerWidth + '×' + window.innerHeight +
+                    '<span class="k">--scale</span>' + scale.toFixed(3);
+
+                let chips = '<span class="k">种类</span>';
+                for (let s = 0; s < STYLE_COUNT; s++) {
+                    chips += '<span class="chip' + (s === index ? ' active' : '') + (isDirty(m, s) ? ' dirty' : '') +
+                             '" data-style="' + (s + 1) + '">style-' + (s + 1) + '</span>';
+                }
+                rowStyle.innerHTML = chips;
+
+                rowValue.innerHTML = '<span class="k">style-' + (index + 1) + '</span>' +
+                    '<span class="v' + (isDirty(m, index) ? ' dirty' : '') + '">dx ' + signed(item.dx) + '  dy ' + signed(item.dy) + '</span>' +
+                    '<span class="k">基准px ×' + scale.toFixed(3) + ' →</span>' +
+                    signed(item.dx * scale) + ' / ' + signed(item.dy * scale) + 'px';
+
+                const base = defaultsOf(m)[index];
+                rowDefault.innerHTML = '<span class="k">文件默认</span>dx ' + signed(base.dx) + '  dy ' + signed(base.dy) +
+                    (isDirty(m, index) ? '<span class="v dirty">已修改</span>' : '<span class="k">未修改</span>');
+            }
+
+            /* ---------------- 底板取样与放大镜 ---------------- */
+
+            function getSprite() {
+                if (!sprite) {
+                    sprite = new Image();
+                    sprite.src = 'img/MiniPlate.png';
+                }
+                return (sprite.complete && sprite.naturalWidth) ? sprite : null;
+            }
+
+            /* 当前页面若没有该种类底板（例如某张表只用了 style-1），
+               就临时造一个离屏探针底板，保证任何种类都能校准 */
+            function makeProbePlate(styleNo) {
+                if (!probeHost) {
+                    probeHost = document.createElement('div');
+                    probeHost.id = 'taikoIconDebugProbe';
+                    probeHost.style.cssText = 'position:absolute;left:-99999px;top:0;width:0;height:0;pointer-events:none;';
+                    document.body.appendChild(probeHost);
+                }
+                if (probeStyle !== styleNo) {
+                    probeHost.innerHTML = '<div class="plate style-' + styleNo + '"><div class="icon-circle"></div></div>';
+                    probeStyle = styleNo;
+                }
+                return probeHost.firstChild;
+            }
+
+            function samplePlate() {
+                const area = document.getElementById('contentArea');
+                const list = area ? area.querySelectorAll('.plate.style-' + (state.styleIndex + 1)) : [];
+                let fallback = null;
+                for (let i = 0; i < list.length; i++) {
+                    if (list[i].querySelector('.icon-circle img')) {
+                        sampleIsProbe = false;
+                        return list[i];
+                    }
+                    if (!fallback) fallback = list[i];
+                }
+                if (fallback) {
+                    sampleIsProbe = false;
+                    return fallback;
+                }
+                sampleIsProbe = true;
+                return makeProbePlate(state.styleIndex + 1);
+            }
+
+            function drawLoupe() {
+                if (!canvas || !ctx) return;
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                const cssW = canvas.clientWidth || 280;
+                const cssH = canvas.clientHeight || 210;
+                const pixelW = Math.max(1, Math.round(cssW * dpr));
+                const pixelH = Math.max(1, Math.round(cssH * dpr));
+                if (canvas.width !== pixelW || canvas.height !== pixelH) {
+                    canvas.width = pixelW;
+                    canvas.height = pixelH;
+                }
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.fillStyle = '#0d1218';
+                ctx.fillRect(0, 0, cssW, cssH);
+
+                const plate = samplePlate();
+                if (!plate) return;
+                const plateRect = plate.getBoundingClientRect();
+                if (!plateRect.width || !plateRect.height) return;
+
+                const circle = plate.querySelector('.icon-circle');
+                const circleRect = circle ? circle.getBoundingClientRect() : null;
+                const zoom = ZOOMS[state.zoomIndex];
+                const centerX = circleRect ? (circleRect.left - plateRect.left + circleRect.width / 2) : plateRect.width / 2;
+                const centerY = circleRect ? (circleRect.top - plateRect.top + circleRect.height / 2) : plateRect.height / 2;
+                const originX = centerX - (cssW / zoom) / 2;
+                const originY = centerY - (cssH / zoom) / 2;
+
+                /* 底板贴图第 style 格正好铺满底板，所以按整格贴图直接换算即可 */
+                ctx.imageSmoothingEnabled = state.smooth;
+                const sheet = getSprite();
+                if (sheet) {
+                    const cellW = sheet.naturalWidth / STYLE_COUNT;
+                    const cellH = sheet.naturalHeight;
+                    ctx.drawImage(sheet, state.styleIndex * cellW, 0, cellW, cellH,
+                        -originX * zoom, -originY * zoom, plateRect.width * zoom, plateRect.height * zoom);
+                }
+
+                /* 图标按 object-fit: contain 的实际绘制区域重绘，保证放大镜里和页面一致 */
+                const icon = plate.querySelector('.icon-circle img');
+                if (icon && icon.naturalWidth && icon.naturalHeight) {
+                    const iconRect = icon.getBoundingClientRect();
+                    if (iconRect.width > 0 && iconRect.height > 0) {
+                        const k = Math.min(iconRect.width / icon.naturalWidth, iconRect.height / icon.naturalHeight);
+                        const drawW = icon.naturalWidth * k;
+                        const drawH = icon.naturalHeight * k;
+                        const iconX = (iconRect.left - plateRect.left) + (iconRect.width - drawW) / 2;
+                        const iconY = (iconRect.top - plateRect.top) + (iconRect.height - drawH) / 2;
+                        ctx.drawImage(icon, 0, 0, icon.naturalWidth, icon.naturalHeight,
+                            (iconX - originX) * zoom, (iconY - originY) * zoom, drawW * zoom, drawH * zoom);
+                    }
+                }
+
+                if (circleRect) {
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(255,64,200,.95)';
+                    ctx.strokeRect((circleRect.left - plateRect.left - originX) * zoom + 0.5,
+                                   (circleRect.top - plateRect.top - originY) * zoom + 0.5,
+                                   circleRect.width * zoom, circleRect.height * zoom);
+                    const cx = (centerX - originX) * zoom;
+                    const cy = (centerY - originY) * zoom;
+                    ctx.strokeStyle = 'rgba(0,229,255,.9)';
+                    ctx.beginPath();
+                    ctx.moveTo(cx, 0); ctx.lineTo(cx, cssH);
+                    ctx.moveTo(0, cy); ctx.lineTo(cssW, cy);
+                    ctx.stroke();
+                }
+
+                if (loupeHint) {
+                    loupeHint.textContent = ZOOMS[state.zoomIndex] + '× · ' + (state.smooth ? '平滑' : '像素') +
+                        (sampleIsProbe ? ' · 探针底板' : '');
+                }
+            }
+
+            function loop() {
+                rafId = 0;
+                if (!state.on) return;
+                const now = Date.now();
+                if (now - lastDraw >= LOUPE_INTERVAL) {
+                    lastDraw = now;
+                    drawLoupe();
+                }
+                rafId = requestAnimationFrame(loop);
+            }
+
+            function startLoop() {
+                if (!rafId && state.on) rafId = requestAnimationFrame(loop);
+            }
+
+            function stopLoop() {
+                if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+            }
+
+            /* ---------------- 选中种类的高亮 ---------------- */
+
+            function markSelected() {
+                const area = document.getElementById('contentArea');
+                if (!area) return;
+                const plates = area.querySelectorAll('.plate');
+                const want = 'style-' + (state.styleIndex + 1);
+                for (let i = 0; i < plates.length; i++) {
+                    if (plates[i].classList.contains(want)) plates[i].setAttribute('data-dbg-sel', '1');
+                    else plates[i].removeAttribute('data-dbg-sel');
+                }
+            }
+
+            function clearMarks() {
+                const area = document.getElementById('contentArea');
+                if (!area) return;
+                const marked = area.querySelectorAll('.plate[data-dbg-sel]');
+                for (let i = 0; i < marked.length; i++) marked[i].removeAttribute('data-dbg-sel');
+            }
+
+            function startObserver() {
+                const area = document.getElementById('contentArea');
+                if (!area || observer || !window.MutationObserver) return;
+                observer = new MutationObserver(function() { markSelected(); });
+                observer.observe(area, { childList: true, subtree: true });
+            }
+
+            function stopObserver() {
+                if (observer) { observer.disconnect(); observer = null; }
+            }
+
+            /* ---------------- 操作 ---------------- */
+
+            function selectStyle(index) {
+                if (!(index >= 0 && index < STYLE_COUNT)) return;
+                state.styleIndex = index;
+                markSelected();
+                renderPanel();
+                drawLoupe();
+            }
+
+            function nudge(ddx, ddy) {
+                const m = mode();
+                const item = BRIDGE.nudge(m, state.styleIndex, ddx, ddy);
+                if (!item) return;
+                BRIDGE.save();
+                BRIDGE.apply();
+                renderPanel();
+                drawLoupe();
+                const scale = currentScale();
+                setStatus('style-' + (state.styleIndex + 1) + '  dx ' + signed(item.dx) + '  dy ' + signed(item.dy) +
+                          '  （渲染 ' + signed(item.dx * scale) + ' / ' + signed(item.dy * scale) + 'px）');
+            }
+
+            function resetOne() {
+                const m = mode();
+                snapshotForUndo(m);
+                BRIDGE.reset(m, state.styleIndex);
+                BRIDGE.save();
+                BRIDGE.apply();
+                renderPanel();
+                drawLoupe();
+                setStatus('已把 style-' + (state.styleIndex + 1) + ' 恢复为文件默认值（' + MODE_LABEL[m] + '），按 U 可撤销');
+            }
+
+            function resetAll() {
+                const m = mode();
+                snapshotForUndo(m);
+                BRIDGE.reset(m, null);
+                BRIDGE.save();
+                BRIDGE.apply();
+                renderPanel();
+                drawLoupe();
+                setStatus('已把 ' + MODE_LABEL[m] + ' 全部种类恢复为文件默认值，按 U 可撤销');
+            }
+
+            /* 重置前留一份快照，避免误按 R / Shift+R 把刚校准好的数值丢掉 */
+            function snapshotForUndo(m) {
+                undoSnapshot = {
+                    mode: m,
+                    list: offsetsOf(m).map(function(p) { return { dx: p.dx, dy: p.dy }; })
+                };
+            }
+
+            function restoreUndo() {
+                if (!undoSnapshot) {
+                    setStatus('没有可撤销的重置记录');
+                    return;
+                }
+                const snapshot = undoSnapshot;
+                const target = offsetsOf(snapshot.mode);
+                for (let i = 0; i < target.length && i < snapshot.list.length; i++) {
+                    target[i].dx = snapshot.list[i].dx;
+                    target[i].dy = snapshot.list[i].dy;
+                }
+                undoSnapshot = null;
+                BRIDGE.save();
+                BRIDGE.apply();
+                renderPanel();
+                drawLoupe();
+                setStatus('已撤销重置，恢复为重置前的数值（' + MODE_LABEL[snapshot.mode] + '）');
+            }
+
+            function cycleZoom() {
+                state.zoomIndex = (state.zoomIndex + 1) % ZOOMS.length;
+                renderPanel();
+                drawLoupe();
+                setStatus('放大镜 ' + ZOOMS[state.zoomIndex] + '×');
+            }
+
+            function toggleSmooth() {
+                state.smooth = !state.smooth;
+                renderPanel();
+                drawLoupe();
+                setStatus(state.smooth ? '平滑采样（接近浏览器实际渲染）' : '像素采样（便于逐像素比对）');
+            }
+
+            function toggleGhost() {
+                state.ghost = !state.ghost;
+                document.body.classList.toggle('taiko-dbg-ghost', state.ghost);
+                setStatus(state.ghost ? '图标已半透明，便于看凹槽' : '图标恢复不透明');
+            }
+
+            function toggleDim() {
+                state.dim = !state.dim;
+                document.body.classList.toggle('taiko-dbg-dim', state.dim);
+                setStatus(state.dim ? '其它种类已压暗' : '已取消压暗');
+            }
+
+            /* ---------------- 输出 ---------------- */
+
+            function measureSelected() {
+                const plate = samplePlate();
+                if (!plate) return null;
+                const plateRect = plate.getBoundingClientRect();
+                const circle = plate.querySelector('.icon-circle');
+                const circleRect = circle ? circle.getBoundingClientRect() : null;
+                return {
+                    probe: sampleIsProbe,
+                    width: plateRect.width,
+                    height: plateRect.height,
+                    left: circleRect ? circleRect.left - plateRect.left : null,
+                    top: circleRect ? circleRect.top - plateRect.top : null,
+                    diameter: circleRect ? circleRect.width : null
+                };
+            }
+
+            function buildOutput() {
+                const m = mode();
+                const scale = currentScale();
+                const info = measureSelected();
+                const lines = [];
+                lines.push('==== TaikoNavigation 图标偏移调试输出 ====');
+                lines.push('时间: ' + new Date().toLocaleString());
+                lines.push('模式: ' + MODE_LABEL[m] + '（' + (m === 'mobile' ? 'innerWidth <= 768' : 'innerWidth > 768') + '）');
+                lines.push('视口: ' + window.innerWidth + ' x ' + window.innerHeight + '   DPR ' + (window.devicePixelRatio || 1));
+                lines.push('--scale: ' + scale.toFixed(4));
+                if (info) {
+                    lines.push('底板实测: ' + info.width.toFixed(2) + ' x ' + info.height.toFixed(2) + ' px' +
+                               (info.probe ? '（探针底板：当前页没有 style-' + (state.styleIndex + 1) + '）' : ''));
+                    if (info.diameter !== null) {
+                        lines.push('图标圆实测: 直径 ' + info.diameter.toFixed(2) + 'px · 相对底板 left ' +
+                                   info.left.toFixed(2) + 'px, top ' + info.top.toFixed(2) + 'px');
+                    }
+                }
+                lines.push('说明: 数值单位是"底板基准像素"，渲染时乘以 --scale（PC 端 --scale 恒为 1）。');
+                lines.push('');
+                lines.push('---- 1) 写回 index.html：替换 DEFAULT_ICON_OFFSETS 里的两个数组 ----');
+                ['mobile', 'pc'].forEach(function(mm) {
+                    lines.push('    ' + mm + ': [');
+                    const list = offsetsOf(mm);
+                    for (let i = 0; i < STYLE_COUNT; i++) {
+                        lines.push('        { dx: ' + trim(list[i].dx) + ', dy: ' + trim(list[i].dy) + ' }' +
+                                   (i < STYLE_COUNT - 1 ? ',' : ' ') + '   // style-' + (i + 1) +
+                                   (isDirty(mm, i) ? '  <- 本次校准' : ''));
+                    }
+                    lines.push('    ]' + (mm === 'mobile' ? ',' : ''));
+                });
+                lines.push('');
+                lines.push('---- 2) 等价的 CSS 变量写法（这里的 px 是渲染值） ----');
+                const list = offsetsOf(m);
+                for (let i = 0; i < STYLE_COUNT; i++) {
+                    lines.push('--icon-dx-' + (i + 1) + ': ' + trim(list[i].dx * scale) + 'px;  --icon-dy-' + (i + 1) + ': ' + trim(list[i].dy * scale) + 'px;');
+                }
+                lines.push('');
+                lines.push('---- 3) 机器可读数据 ----');
+                lines.push(JSON.stringify({
+                    mode: m,
+                    scale: Math.round(scale * 10000) / 10000,
+                    viewport: [window.innerWidth, window.innerHeight],
+                    mobile: offsetsOf('mobile').map(function(p) { return [p.dx, p.dy]; }),
+                    pc: offsetsOf('pc').map(function(p) { return [p.dx, p.dy]; })
+                }));
+                lines.push('');
+                lines.push('// 写回文件后清掉本地调试缓存：localStorage.removeItem(' + JSON.stringify(BRIDGE.storageKey) + ')');
+                return lines.join('\n');
+            }
+
+            function doOutput() {
+                const text = buildOutput();
+                outWrap.hidden = false;
+                outArea.value = text;
+                state.hasOutput = true;
+                try { console.log(text); } catch (e) {}
+                outArea.focus();
+                outArea.select();
+                setStatus('已输出到控制台和下面的文本框（已全选，可 Ctrl+C）');
+            }
+
+            function copyOutput() {
+                if (!state.hasOutput || !outArea.value) doOutput();
+                const text = outArea.value;
+                outArea.focus();
+                outArea.select();
+                let done = false;
+                try { done = document.execCommand('copy'); } catch (e) { done = false; }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        setStatus('已复制到剪贴板');
+                    }, function() {
+                        setStatus(done ? '已复制到剪贴板' : '复制被浏览器拦截：文本已全选，请按 Ctrl+C');
+                    });
+                } else {
+                    setStatus(done ? '已复制到剪贴板' : '复制失败：文本已全选，请按 Ctrl+C');
+                }
+            }
+
+            function downloadOutput() {
+                if (!state.hasOutput || !outArea.value) doOutput();
+                try {
+                    const blob = new Blob([outArea.value], { type: 'text/plain;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'taiko-icon-offsets-' + mode() + '.txt';
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(function() {
+                        URL.revokeObjectURL(link.href);
+                        link.remove();
+                    }, 1500);
+                    setStatus('已开始下载 taiko-icon-offsets-' + mode() + '.txt');
+                } catch (e) {
+                    setStatus('下载失败：' + e.message);
+                }
+            }
+
+            /* ---------------- 开关与键盘 ---------------- */
+
+            function enable() {
+                if (state.on) return;
+                state.on = true;
+                if (!panel) buildPanel();
+                document.body.classList.add('taiko-icon-debug');
+                if (state.dim) document.body.classList.add('taiko-dbg-dim');
+                if (state.ghost) document.body.classList.add('taiko-dbg-ghost');
+                panel.hidden = false;
+                markSelected();
+                startObserver();
+                renderPanel();
+                startLoop();
+                setStatus('数字键选种类，方向键微调，O 输出');
+                console.log('[TaikoNavigation] 图标偏移调试已开启：1-6 选种类，方向键 0.1px 微调，O 输出结果');
+            }
+
+            function disable() {
+                if (!state.on) return;
+                state.on = false;
+                stopLoop();
+                stopObserver();
+                document.body.classList.remove('taiko-icon-debug', 'taiko-dbg-dim', 'taiko-dbg-ghost');
+                clearMarks();
+                if (panel) panel.hidden = true;
+                console.log('[TaikoNavigation] 图标偏移调试已关闭；调试数值仍在生效（按 R 可还原，或清理 localStorage）');
+            }
+
+            function isArrowKey(key) {
+                return key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown';
+            }
+
+            function onKeyDown(e) {
+                /* Ctrl+Shift+P 开关（用 e.code，避免大小写和输入法差异） */
+                if (e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'KeyP') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!e.repeat) { if (state.on) disable(); else enable(); }
+                    return;
+                }
+
+                if (!state.on) return;
+
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    disable();
+                    return;
+                }
+
+                /* 保留 Ctrl+C / Ctrl+V 等组合键；在输入框里打字时不抢键 */
+                if ((e.ctrlKey || e.metaKey) && !isArrowKey(e.key)) return;
+                if (isEditableTarget()) return;
+
+                let step = STEP_NORMAL;
+                if (e.ctrlKey) step = STEP_FINE;
+                else if (e.shiftKey) step = STEP_COARSE;
+
+                let handled = true;
+                switch (e.key) {
+                    case 'ArrowLeft': nudge(-step, 0); break;
+                    case 'ArrowRight': nudge(step, 0); break;
+                    case 'ArrowUp': nudge(0, -step); break;
+                    case 'ArrowDown': nudge(0, step); break;
+                    case '1': case '2': case '3': case '4': case '5': case '6':
+                        selectStyle(parseInt(e.key, 10) - 1);
+                        break;
+                    case 'o': case 'O': doOutput(); break;
+                    case 'r': case 'R':
+                        if (e.shiftKey) resetAll(); else resetOne();
+                        break;
+                    case 'z': case 'Z': cycleZoom(); break;
+                    case 'm': case 'M': toggleSmooth(); break;
+                    case 't': case 'T': toggleGhost(); break;
+                    case 'h': case 'H': toggleDim(); break;
+                    case 'u': case 'U': restoreUndo(); break;
+                    default: handled = false;
+                }
+                if (handled) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+
+            window.addEventListener('keydown', onKeyDown, true);
+
+            /* 备用入口：?icondebug=1 */
+            if (/[?&]icondebug=1(&|$)/.test(window.location.search)) {
+                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enable);
+                else enable();
+            }
         })();
     </script>
 </body>
