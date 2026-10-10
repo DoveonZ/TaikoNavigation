@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>TaikoNavigation - 太鼓达人导航</title>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- 解析 data.xlsx 用的 SheetJS。以前直接引 cdn.sheetjs.com，
+         那个域名一旦握手超时整个导航页就只剩"无法加载 data.xlsx"。
+         现在改成自带一份（vendor/xlsx.full.min.js），
+         万一本地那份丢了，脚本里还会自动去 CDN 兜一次底。 -->
+    <script src="vendor/xlsx.full.min.js"></script>
     <style>
         :root {
             --gold: #cc9c56;
@@ -29,6 +33,14 @@
             --content-max-width: 1680px;
             --bg-image: url('img/background.png');
             --scale: 1;
+
+            /* 弹窗切换动画。基准 0.1667s ≈ 60fps 下的 10 帧（原 20 帧的速度两倍），
+               进度曲线仍是前 6 成匀速、后 4 成匀减速到 0。
+               --modal-speed 是速度倍率（>1 更快），调试面板可实时调并缓存到 localStorage。 */
+            --modal-speed: 1;
+            --modal-switch-dur: calc(0.1667s / var(--modal-speed));
+            --modal-fade-in-dur: calc(0.16s / var(--modal-speed));
+            --modal-fade-out-dur: calc(0.24s / var(--modal-speed));
 
             /* 图标微调偏移：下标 1~6 对应底板样式 .plate.style-1 ~ .plate.style-6。
                下面这组只是脚本未执行时的兜底值（= PC 端数值，--scale 恒为 1）。
@@ -246,10 +258,10 @@
         }
 
         /* ========== 分区行标题（data.xlsx 中 style 列写 linetitle 的行） ==========
-           分区里的图板与名字靠左排（行上加 .row-left），标题条本身仍是通栏、文字居中。
-           名字栏是通栏元素，负外边距让它相对内容区左移了 calc(50% - 50vw)；
-           这里用反向的 calc(50vw - 50%) 把内容推回内容区左边缘，才能与图板左边缘对齐。
-           标题条文字居中，不受这个左移影响，所以不需要补偿。 */
+           标题条是通栏的金底白字，文字居中。
+           分区里的图板行仍按整行 columns 个槽位排（与普通行完全一致），
+           因此第一块图板正好落在"正常排列时第一列"的位置上，
+           空出来的槽位由 .plate.empty-plate 的暗置底板填满。 */
         .row-title-bar {
             height: var(--row-title-height);
             background: var(--gold);
@@ -272,11 +284,6 @@
             text-overflow: ellipsis;
             user-select: none;
             text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.45);
-        }
-        .plates-row.row-left { justify-content: flex-start; }
-        .gold-name-row.row-left {
-            justify-content: flex-start;
-            padding-left: calc(50vw - 50%);
         }
 
         .plates-row {
@@ -311,7 +318,7 @@
             position: relative;
             z-index: 1;
         }
-        .empty-unit .rope { opacity: 0; }
+        .empty-unit .rope { opacity: 0.28; }
 
         .plate {
             width: var(--plate-width);
@@ -345,12 +352,14 @@
 
         .plate.empty-plate {
             cursor: default;
-            opacity: 0;
-            filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.3)) grayscale(10%);
+            /* 空槽位也画一块底板，但压暗去色退到背景里：
+               整行因此保持完整的排列节奏（六种底板按列数 12/6 循环，正好整除）。 */
+            opacity: 0.32;
+            filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.25)) grayscale(45%) brightness(0.62);
         }
         .plate.empty-plate:hover {
             transform: none;
-            filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.3)) grayscale(10%);
+            filter: drop-shadow(2px 3px 5px rgba(0, 0, 0, 0.25)) grayscale(45%) brightness(0.62);
             cursor: default;
         }
 
@@ -447,6 +456,482 @@
             margin-left: calc(50% - 50vw);
         }
 
+        /* ==========================================================================
+           网页速览弹窗（点击图板打开）
+
+           画面全部由现有素材拼装，没有额外画图：
+             · Panel.png            外框。用 border-image 九宫格切：上下左右各切到
+                                    内框底色的起始位置（上 25 / 右 27 / 下 28 / 左 20），
+                                    于是 border 内侧恰好等于素材里的米色内框，
+                                    边角与描边保持素材原样，中间随内容拉伸。
+             · Panel_Side.png       精灵图，240×806 = 6 帧 ×40px，每帧一种底板配色。
+                                    按被点击图板的 style 取帧，贴在面板内框最左侧当装饰条。
+             · MiniPlate.png        左侧挂牌，取与图板同款的帧，圆槽里放该网站的图标。
+             · GaugeCondition_Bar.png  下方三张卡位（后续放每个网页的 16:9 预览图）。
+
+           所有尺寸 = 素材原始像素 × --k。--k 由脚本按视口算出（桌面端挂牌与面板并排，
+           窄屏改为上下堆叠并单独放大挂牌），因此任何屏幕下各素材的比例都保持一致。
+           文字用 clamp() 兜底，避免小屏时等比缩到看不清。
+           ========================================================================== */
+        body.modal-open { overflow: hidden; }
+
+        .site-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 900;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 16px 12px;
+            background: rgba(10, 8, 4, 0.66);
+            -webkit-backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px);
+            /* 纵向滚动保留，横向裁掉：入场时整块弹窗停在视口右侧外面，
+               若不裁掉横向溢出会短暂顶出一条横向滚动条。 */
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            /* 滚到底/顶时不要把滚动传给背后的导航页 */
+            overscroll-behavior: contain;
+            opacity: 0;
+            transition: opacity var(--modal-fade-in-dur) ease;
+            --k: 1;
+            --pk: 1;
+            --idx: 0;
+            --ink: #503c2d;          /* Panel.png 里内框与圆角标签的描边色 */
+            --panel-fill: #f8f5e1;   /* Panel.png 里内框的底色 */
+        }
+        .site-modal[hidden] { display: none; }
+        .site-modal.show { opacity: 1; }
+        /* 退场时遮罩要留到最后，否则弹窗还没淡走背景就已经亮回来了 */
+        .site-modal.closing { transition: opacity var(--modal-fade-out-dur) ease; }
+        /* 翻页：遮罩必须一直不透明，只有弹窗本身在换 */
+        .site-modal.paging { opacity: 1; }
+
+        /* 推入距离：入场起点 / 退场终点 / 翻页时新旧两块的间距都用它。
+           一块的宽度 ≈ 1870 素材像素（含箭头留白与块间空隙），
+           于是入场那块恰好停在屏幕右侧外一点点 ——
+           即"后入者把原有者推出去"：两块刚性并排、相对静止地平移，不是叠化。
+           翻页时脚本会把 --push-in / --push-out 按方向对调。 */
+        .site-modal {
+            --push: calc(1870px * var(--k));
+            --push-in: var(--push);
+            --push-out: calc(-1 * var(--push));
+            /* 切换动画的进度曲线：0~60% 匀速走到 0.75，60~100% 匀减速补完剩余 0.25。
+               匀速段速度 = 0.75/0.6 = 1.25，减速段初速 1.25、末速 0，
+               位移 = 1.25×0.4/2 = 0.25，正好收尾。 */
+            --switch-ease: linear(0, 0.75 60%, 0.8086 65%, 0.8594 70%, 0.9023 75%,
+                                  0.9375 80%, 0.9648 85%, 0.9844 90%, 0.9961 95%, 1);
+        }
+
+        /* 跟着弹窗一起被推入 / 推出的部分：左侧挂牌、面板。
+           底部提示文字刻意不在这个名单里 —— 它不参与动画，始终停在原处。
+           刻意用 translate（而不是包一层 transform 的容器）：
+           翻页箭头也不在这个名单里，所以切换时它俩留在原地不动；
+           挂牌自己的悬停上浮仍旧走 transform，两者互不干扰。
+           选择器写成"舞台的直接子链"，这样翻页时那份克隆（嵌在 .site-modal-ghost 里，
+           深一层）不会被这些规则命中 —— 否则克隆里的挂牌会被多推一次。
+           transition 里先写 cubic-bezier 兜底，下面再用 linear() 覆盖；
+           不认识 linear() 的浏览器会整条丢弃，退回上面的贝塞尔近似。 */
+        .site-modal-stage > .site-modal-main > .site-modal-plate,
+        .site-modal-stage > .site-modal-main > .site-modal-panel {
+            translate: var(--push-in) 0;
+            transition: translate var(--modal-switch-dur) cubic-bezier(0.4, 0.5, 0.7, 1);
+            transition-timing-function: linear(0, 0.75 60%, 0.8086 65%, 0.8594 70%,
+                        0.9023 75%, 0.9375 80%, 0.9648 85%, 0.9844 90%, 0.9961 95%, 1);
+        }
+        /* 换内容瞬间不带动画地把新内容摆到入场起点 */
+        .site-modal.paging-snap .site-modal-stage > .site-modal-main > .site-modal-plate,
+        .site-modal.paging-snap .site-modal-stage > .site-modal-main > .site-modal-panel { transition: none !important; }
+
+        .site-modal-stage {
+            position: relative;      /* 翻页时叠加的"上一块"用它定位 */
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: calc(20px * var(--k));
+        }
+        /* 翻页时叠在旁边的"上一块"：整块克隆，和新的那块朝同一方向平移同样的距离。
+           两块始终隔着一个 --push，互相保持相对静止 —— 就是被推出去的感觉；
+           被推走的那块同时淡出，新块不透明地推入。 */
+        .site-modal-ghost {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: calc(20px * var(--k));
+            pointer-events: none;
+            translate: 0 0;
+            opacity: 1;
+            transition: translate var(--modal-switch-dur) cubic-bezier(0.4, 0.5, 0.7, 1),
+                        opacity var(--modal-switch-dur) cubic-bezier(0.4, 0.5, 0.7, 1);
+            transition-timing-function: linear(0, 0.75 60%, 0.8086 65%, 0.8594 70%,
+                        0.9023 75%, 0.9375 80%, 0.9648 85%, 0.9844 90%, 0.9961 95%, 1);
+        }
+        .site-modal.paging .site-modal-ghost {
+            translate: var(--push-out) 0;
+            opacity: 0;
+        }
+        /* 箭头和提示只有一份（真正的那份不动），克隆里的这两样藏掉免得重影 */
+        .site-modal-ghost .site-arrow,
+        .site-modal-ghost .site-modal-hint { visibility: hidden; }
+
+        /* 挂牌 + 面板（+ 桌面端两侧的翻页箭头）这一行 */
+        .site-modal-main {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            justify-content: center;
+            /* 挂牌最小侧本身带约 17px 透明边，加上这里的间距即得素材里的视觉间隔 */
+            gap: calc(12px * var(--k));
+        }
+        /* 面板下方的操作提示（没有关闭按钮，得让人知道怎么退出去） */
+        .site-modal-hint {
+            color: rgba(248, 245, 225, 0.68);
+            font-size: clamp(12px, calc(20px * var(--k)), 20px);
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-indent: 0.14em;   /* 抵消字距在末尾留下的空隙，保持居中 */
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
+            user-select: none;
+        }
+        .site-modal.show .site-modal-stage > .site-modal-main > .site-modal-plate,
+        .site-modal.show .site-modal-stage > .site-modal-main > .site-modal-panel {
+            translate: 0 0;
+        }
+        /* 翻页：新的一块先被无过渡地摆到入场起点（写在 .show 之后才会生效），
+           随后和旧块一起朝同一方向平移同样的距离 —— 旧块被推出，新块推入。 */
+        .site-modal.paging-in .site-modal-stage > .site-modal-main > .site-modal-plate,
+        .site-modal.paging-in .site-modal-stage > .site-modal-main > .site-modal-panel {
+            translate: var(--push-in) 0;
+        }
+        /* 关闭：向左推出 */
+        .site-modal.closing .site-modal-stage > .site-modal-main > .site-modal-plate,
+        .site-modal.closing .site-modal-stage > .site-modal-main > .site-modal-panel {
+            translate: calc(-1 * var(--push)) 0;
+        }
+
+        /* ---------- 左侧挂牌：MiniPlate.png 取帧 ---------- */
+        .site-modal-plate {
+            position: relative;
+            flex-shrink: 0;
+            width: calc(230px * var(--pk));
+            height: calc(482px * var(--pk));
+            margin-top: calc(34px * var(--pk));
+            background-image: url('img/MiniPlate.png');
+            background-repeat: no-repeat;
+            background-size: calc(1380px * var(--pk)) calc(482px * var(--pk));
+            background-position: calc(var(--idx) * -230px * var(--pk)) 0;
+            filter: drop-shadow(calc(3px * var(--pk)) calc(5px * var(--pk)) calc(9px * var(--pk)) rgba(0, 0, 0, 0.5));
+            /* 整块挂牌就是"直接访问该网页"的按钮 */
+            cursor: pointer;
+            /* translate 走弹窗推入，transform / filter 走悬停上浮 ——
+               三条都要列全，否则后写的这条会把上面那条的位移过渡顶掉。
+               timing function 按属性顺序给：第一条用切换曲线，后两条给 ease。 */
+            transition: translate var(--modal-switch-dur) cubic-bezier(0.4, 0.5, 0.7, 1),
+                        transform 0.22s ease, filter 0.22s ease;
+            transition-timing-function: linear(0, 0.75 60%, 0.8086 65%, 0.8594 70%,
+                        0.9023 75%, 0.9375 80%, 0.9648 85%, 0.9844 90%, 0.9961 95%, 1),
+                        ease, ease;
+        }
+        .site-modal-plate:hover {
+            transform: translateY(calc(-8px * var(--pk)));
+            filter: drop-shadow(calc(4px * var(--pk)) calc(9px * var(--pk)) calc(15px * var(--pk)) rgba(0, 0, 0, 0.58)) brightness(1.08);
+        }
+        .site-modal-plate:active {
+            transform: translateY(calc(-3px * var(--pk)));
+            transition: transform 0.06s ease;
+        }
+
+        /* ---------- 左右翻页箭头 ----------
+           Plate_Arrow.png 是一张 56×72 的左向箭头（不是精灵图），右向用水平镜像。
+           两个按钮都是 .site-modal-main 的直接子项（不套中转容器），
+           这样桌面端能排在挂牌两侧并参与 --k 的宽度计算，
+           窄屏靠 flex-wrap 换行就能变成"夹在挂牌两侧、面板另起一行"。 */
+        .site-modal.no-paging .site-arrow { display: none; }
+
+        .site-arrow {
+            --flip: 1;
+            --zoom: 1;
+            flex-shrink: 0;
+            align-self: center;
+            /* 抬到翻页克隆之上，否则会被推出去的那一块盖住 */
+            position: relative;
+            z-index: 3;
+            width: calc(56px * var(--k));
+            aspect-ratio: 56 / 72;
+            padding: 0;
+            appearance: none;
+            -webkit-appearance: none;
+            border: none;
+            background: url('img/Plate_Arrow.png') center / contain no-repeat;
+            cursor: pointer;
+            transform: scaleX(var(--flip)) scale(var(--zoom));
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+            transition: transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .site-arrow:hover {
+            --zoom: 1.12;
+            filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55)) brightness(1.12);
+        }
+        .site-arrow:active { --zoom: 0.94; }
+        .site-arrow:focus-visible {
+            outline: 2px solid var(--panel-fill);
+            outline-offset: 3px;
+            border-radius: 6px;
+        }
+        .site-arrow:disabled {
+            --zoom: 1;
+            opacity: 0.26;
+            cursor: default;
+            filter: none;
+        }
+        .site-arrow-prev { margin-right: calc(16px * var(--k)); }
+        .site-arrow-next {
+            --flip: -1;
+            order: 9;                              /* 排到面板右侧 */
+            margin-left: calc(16px * var(--k));
+        }
+        .site-modal-plate .icon-circle {
+            position: absolute;
+            /* 与导航图板同一套比例：基准图板 120×252 时是 31.5 / 27 / 57，
+               换算到素材原始尺寸 230×482 即下面这三个数（乘 --pk 缩放）。 */
+            left: calc(60.4px * var(--pk));
+            top: calc(51.75px * var(--pk));
+            width: calc(109.25px * var(--pk));
+            height: calc(109.25px * var(--pk));
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.12);
+            border: calc(2px * var(--pk)) solid rgba(255, 255, 255, 0.22);
+            box-shadow: inset 0 0 calc(8px * var(--pk)) rgba(0, 0, 0, 0.25);
+            pointer-events: none;
+        }
+        .site-modal-plate .icon-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* ---------- 面板：Panel.png 九宫格外框 ---------- */
+        .site-modal-panel {
+            position: relative;
+            box-sizing: border-box;
+            width: calc(1522px * var(--k));
+            min-height: calc(770px * var(--k));
+            /* 兜底：个别内嵌/移动端浏览器上报的可视宽度可能比实际大，
+               这里再按真实视口收一次，保证面板永远不会横向溢出。 */
+            max-width: calc(100vw - 24px);
+            border-style: solid;
+            border-width: calc(25px * var(--k)) calc(27px * var(--k)) calc(28px * var(--k)) calc(20px * var(--k));
+            border-image-source: url('img/Panel.png');
+            border-image-slice: 25 27 28 20;
+            border-image-repeat: stretch;
+            /* 内框底色：素材里由 #f8f5e1 到底部 #e8e6d3 有极轻微的竖向渐变 */
+            background-color: var(--panel-fill);
+            background-image: linear-gradient(#f8f5e1, #e8e6d3);
+            background-clip: padding-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ---------- 左右装饰条：Panel_Side.png 按 style 取帧，两侧各贴一条 ---------- */
+        .site-modal-stripe {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: calc(40px * var(--k));
+            background-image: url('img/Panel_Side.png');
+            background-repeat: no-repeat;
+            background-size: calc(240px * var(--k)) 100%;
+            background-position: calc(var(--idx) * -40px * var(--k)) 0;
+            pointer-events: none;
+        }
+        /* 右侧同款一条。用 scaleX(-1) 水平翻转，让两侧花纹沿中轴对称
+           （与 example.png 里左右两条的走向一致）。
+           右移 1 个素材像素：Panel.png 内框右缘那一列还是底色，
+           贴 right:0 会在花纹和黑框之间留下一条浅色缝。 */
+        .site-modal-stripe.stripe-right {
+            left: auto;
+            right: calc(-1px * var(--k));
+            transform: scaleX(-1);
+        }
+
+        /* ---------- 顶部介绍区 ---------- */
+        .site-modal-head {
+            position: relative;
+            z-index: 1;
+            min-height: calc(300px * var(--k));
+            /* 左右各留出"装饰条 40 + 间隙 48"，文字不会压到两侧花纹上 */
+            padding: calc(46px * var(--k)) calc(88px * var(--k)) calc(20px * var(--k)) calc(88px * var(--k));
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: clamp(6px, calc(16px * var(--k)), 16px);
+        }
+        .site-modal-title {
+            color: #2b2620;
+            font-size: clamp(16px, calc(34px * var(--k)), 34px);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+        .site-modal-desc {
+            color: #3b3630;
+            font-size: clamp(14px, calc(28px * var(--k)), 28px);
+            font-weight: 400;
+            line-height: 1.45;
+            letter-spacing: 0.02em;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .site-modal-visit {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5em;
+            max-width: 100%;
+            /* 纵向内边距不能完全跟着 --k 缩，否则手机上会变成一个点不中的细条 */
+            padding: clamp(7px, calc(8px * var(--k)), 8px) clamp(14px, calc(22px * var(--k)), 22px);
+            border-radius: 999px;
+            background: rgba(80, 60, 45, 0.1);
+            color: var(--ink);
+            font-size: clamp(13px, calc(20px * var(--k)), 20px);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: background 0.2s ease;
+        }
+        .site-modal-visit:hover { background: rgba(80, 60, 45, 0.24); }
+        .site-modal-visit-host {
+            font-weight: 400;
+            opacity: 0.75;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ---------- 圆角标签 + 内容框（Panel.png 里的深棕标签与内框） ---------- */
+        .site-modal-body {
+            position: relative;
+            z-index: 1;
+            margin: 0 calc(56px * var(--k));
+        }
+        .site-modal-tab {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: calc(409px * var(--k));
+            min-width: fit-content;
+            min-height: calc(35px * var(--k));
+            padding: calc(4px * var(--k)) clamp(10px, calc(24px * var(--k)), 24px);
+            margin-bottom: calc(-2px * var(--k));
+            background: var(--ink);
+            color: var(--panel-fill);
+            border-radius: max(5px, calc(12px * var(--k))) max(5px, calc(12px * var(--k))) 0 0;
+            font-size: clamp(12px, calc(20px * var(--k)), 20px);
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-indent: 0.16em;   /* 抵消字距在末尾留下的空隙，让文字保持居中 */
+            white-space: nowrap;
+            user-select: none;
+        }
+        .site-modal-body-box {
+            position: relative;
+            border: max(1px, calc(2px * var(--k))) solid var(--ink);
+            border-radius: 0 max(8px, calc(24px * var(--k))) max(8px, calc(24px * var(--k))) max(8px, calc(24px * var(--k)));
+            background: var(--panel-fill);
+            min-height: calc(417px * var(--k));
+        }
+
+        /* ---------- 下方卡位：GaugeCondition_Bar.png ---------- */
+        .site-modal-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: calc(40px * var(--k));
+            padding: calc(90px * var(--k)) 0;
+        }
+        .site-modal-card {
+            position: relative;
+            aspect-ratio: 333 / 184;   /* = GaugeCondition_Bar.png 的原始比例，保证不拉伸变形 */
+            background-image: url('img/GaugeCondition_Bar.png');
+            background-repeat: no-repeat;
+            background-size: 100% 100%;
+        }
+        /* 每张卡片里预留的 16:9 预览图位。现在没有图片，保持透明；
+           后续给对应卡片设置 background-image 即可（background-size: contain 会保持 16:9 不被裁切）。 */
+        .site-modal-shot {
+            position: absolute;
+            left: 3%;
+            top: 11%;
+            width: 94%;
+            height: 82%;
+            border-radius: max(6px, calc(22px * var(--k)));
+            overflow: hidden;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+        }
+
+        /* 没有关闭按钮：点面板以外的空白处即可退出（见脚本里的遮罩点击） */
+
+        /* 窄屏：翻页箭头夹到挂牌两侧，面板另起一行；
+           卡片两列（列数少了弹窗会高得放不进 16:9 手机屏）。 */
+        @media (max-width: 760px) {
+            .site-modal {
+                padding: 10px 6px;
+                /* 移动端关掉背景模糊：整块弹窗是滑入的，模糊层每帧都要重绘，低端机容易掉帧。
+                   改用更实的底色补偿观感。 */
+                -webkit-backdrop-filter: none;
+                backdrop-filter: none;
+                background: rgba(10, 8, 4, 0.74);
+            }
+            .site-modal-stage { gap: calc(12px * var(--k)); }
+            /* 让箭头和挂牌排一行、面板被挤到下一行 */
+            .site-modal-main {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: center;
+                column-gap: calc(14px * var(--k));
+                row-gap: calc(12px * var(--k));
+            }
+            .site-modal-plate { margin-top: 0; }
+            /* 换行后箭头要留在挂牌左右，所以把面板的次序推到它们后面 */
+            .site-modal-panel {
+                max-width: calc(100vw - 12px);
+                order: 9;
+            }
+            /* 窄屏下 --k 很小，箭头要保一个能点中的下限 */
+            .site-arrow { width: max(44px, calc(56px * var(--k))); }
+            .site-arrow-prev { margin-right: 0; }
+            .site-arrow-next { margin-left: 0; order: 0; }
+            /* 手机屏幕窄：介绍区上下收一收，别把卡片挤到首屏之外 */
+            .site-modal-head {
+                min-height: calc(200px * var(--k));
+                padding: calc(28px * var(--k)) calc(80px * var(--k)) calc(14px * var(--k)) calc(80px * var(--k));
+            }
+            .site-modal-cards {
+                grid-template-columns: repeat(2, 1fr);
+                gap: calc(30px * var(--k));
+                padding: calc(30px * var(--k)) 0;
+            }
+            .site-modal-hint { font-size: 12px; }
+        }
+
         @media (max-width: 768px) {
             :root {
                 --columns: 6;
@@ -467,7 +952,6 @@
                 border: calc(1.5px * var(--scale)) solid rgba(255,255,255,0.2);
                 box-shadow: inset 0 0 calc(5px * var(--scale)) rgba(0,0,0,0.25);
             }
-            .plate.empty-plate { opacity: 0; }
             .name-slot { font-size: calc(8.4px * var(--scale)); letter-spacing: 0.02em; }
             .row-title { font-size: calc(12px * var(--scale)); letter-spacing: 0.1em; padding: 0 6px; }
             .rope {
@@ -509,6 +993,33 @@
         <div class="footer-gold"></div>
     </div>
 
+    <!-- 网页速览弹窗的骨架。内容由脚本按被点击的图板填充；
+         放在 .main-container 之外，这样切换工作表重绘导航时弹窗不会受影响。 -->
+    <div class="site-modal" id="siteModal" hidden aria-hidden="true"
+         role="dialog" aria-modal="true" aria-labelledby="siteModalTab">
+        <div class="site-modal-stage">
+            <div class="site-modal-main">
+                <button type="button" class="site-arrow site-arrow-prev" id="siteArrowPrev"
+                        aria-label="上一个网站" title="上一个（←）"></button>
+                <div class="site-modal-plate" id="siteModalPlate"></div>
+                <div class="site-modal-panel">
+                    <div class="site-modal-stripe"></div>
+                    <div class="site-modal-stripe stripe-right"></div>
+                    <div class="site-modal-head" id="siteModalHead"></div>
+                    <div class="site-modal-body">
+                        <div class="site-modal-tab" id="siteModalTab">网页速览</div>
+                        <div class="site-modal-body-box">
+                            <div class="site-modal-cards" id="siteModalCards"></div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="site-arrow site-arrow-next" id="siteArrowNext"
+                        aria-label="下一个网站" title="下一个（→）"></button>
+            </div>
+            <p class="site-modal-hint">点击面板以外的空白处退出</p>
+        </div>
+    </div>
+
     <script>
         (function() {
             /* data.xlsx 中每个工作表（Sheet）渲染为一个页面。
@@ -519,6 +1030,9 @@
             const sheets = [];        // [{ name: 工作表名, sections: [{ title, links: [...] }] }]
             let activeSheet = 0;      // 当前页面的工作表下标
             let lastIsMobile = null;  // 上一次渲染所依据的移动端判定，用于 resize 时决定是否重绘
+            const linkStore = {};     // 链接 id -> 链接数据，供"网页速览"弹窗按 id 取用
+            let linkSeq = 0;
+            let loadError = null;     // 加载失败时给用户看的具体原因（区分"库没加载"和"文件找不到"）
 
             /* ========== 图标微调偏移量表 ==========
                dx / dy 的单位是"底板基准像素"：脚本会乘以当前 --scale 后写入
@@ -703,15 +1217,13 @@
                 const styleNum = linkData ? linkData.style : ((index % 6) + 1);
                 const iconSrc = linkData && linkData.icon ? 'img/icon/' + linkData.icon : '';
                 const name = linkData ? linkData.name : '';
-                const url = linkData ? linkData.url : '';
-                const desc = linkData ? (linkData.desc || '') : '';
                 const isEmpty = !hasLink;
                 const plateClass = 'plate style-' + styleNum + (isEmpty ? ' empty-plate' : '');
                 let html = '<div class="plate-unit' + (hasLink ? '' : ' empty-unit') + '">';
                 html += '<div class="rope"></div>';
                 html += '<div class="' + plateClass + '"';
-                if (hasLink && desc) html += ' title="' + escapeHTML(desc) + '"';
-                if (hasLink) html += ' onclick="window.open(\'' + escapeHTML(url) + '\', \'_blank\')" style="cursor:pointer;"';
+                /* 点图板改为打开"网页速览"弹窗（网址仍可由图板下方的名称直接跳转） */
+                if (hasLink) html += ' onclick="window.TAIKO_OPEN_INFO(' + linkData.id + ')" style="cursor:pointer;"';
                 html += '>';
                 if (hasLink && iconSrc) {
                     html += '<div class="icon-circle"><img src="' + escapeHTML(iconSrc) +
@@ -787,7 +1299,9 @@
                 const contentArea = document.getElementById('contentArea');
                 const sheet = sheets[activeSheet];
                 if (!sheet) {
-                    contentArea.innerHTML = '<div class="load-error">无法加载 data.xlsx，请确认该文件与本页面位于同一目录。</div>';
+                    contentArea.innerHTML = '<div class="load-error">' +
+                        escapeHTML(loadError || '无法加载 data.xlsx，请确认该文件与本页面位于同一目录。') +
+                        '</div>';
                     return;
                 }
                 const config = getConfig();
@@ -824,26 +1338,21 @@
                             const idx = row * columns + col;
                             rowSlots.push(idx < linksData.length ? linksData[idx] : null);
                         }
-                        /* 带行标题的分区只排这一行的链接、不补空位：
-                           补空位会把整行撑得比容器还宽，内容被挤向左边，窄屏时还会被裁掉。
-                           没有标题的普通工作表仍按整行 columns 个占位，保持原有外观。 */
-                        const slotsInRow = section.title
-                            ? Math.min(columns, linksData.length - row * columns)
-                            : columns;
+                        /* 每行都排满 columns 个槽位，空位由暗置底板填满：
+                           第一块图板因此落在"正常排列时第一列"的位置，
+                           分区行与普通行的排列完全一致。 */
                         const directionClass = (rowIndex % 2 === 0) ? 'row-animate' : 'row-animate-reverse';
-                        /* 分区行靠左排；没有标题的普通工作表保持原来的居中排版 */
-                        const alignClass = section.title ? ' row-left' : '';
                         html += '<div class="row-group">';
                         html += '<div class="black-line"></div>';
                         if (row === 0 && section.title) {      // 行标题只出现在该分区的第一行
                             html += '<div class="row-title-bar"><span class="row-title">' + escapeHTML(section.title) + '</span></div>';
                         }
-                        html += '<div class="plates-row ' + directionClass + alignClass + '">';
-                        for (let col = 0; col < slotsInRow; col++) html += createPlateHTML(rowSlots[col], rowIndex * columns + col);
+                        html += '<div class="plates-row ' + directionClass + '">';
+                        for (let col = 0; col < columns; col++) html += createPlateHTML(rowSlots[col], rowIndex * columns + col);
                         html += '</div>';
                         html += '<div class="black-line"></div>';
-                        html += '<div class="gold-name-row' + alignClass + '">';
-                        for (let col = 0; col < slotsInRow; col++) html += createNameHTML(rowSlots[col]);
+                        html += '<div class="gold-name-row">';
+                        for (let col = 0; col < columns; col++) html += createNameHTML(rowSlots[col]);
                         html += '</div>';
                         html += '<div class="black-line"></div>';
                         html += '</div>';
@@ -857,6 +1366,460 @@
                 updateMobileScale();
                 renderGrid();
             }
+
+            /* ========== 网页速览弹窗 ==========
+               点图板不再直接跳转，而是打开这块弹窗：左侧是与图板同款、同图标的 MiniPlate，
+               右侧是 Panel.png 面板 —— 顶部放 data.xlsx 里该行的 desc，下方三张
+               GaugeCondition_Bar 卡位暂时留空（后续放每个网页的 16:9 预览图）。 */
+            const STYLE_COUNT = 6;                 // MiniPlate.png / Panel_Side.png 都是 6 帧精灵图
+            const MODAL_STACK_BREAKPOINT = 760;    // 小于这个宽度改成上下堆叠
+            /* 挂牌 230 + 面板 1522 + 两个间距 12 + 两个翻页箭头 56 + 两侧额外留白 16×2 */
+            const MODAL_STAGE_WIDTH = 1935;
+            const MODAL_STAGE_HEIGHT = 800;        // 面板最小高度 770 + 上下留白
+            const MODAL_CARD_COUNT = 3;            // 每个网页预留三张 16:9 预览图卡位
+            const MODAL_TAB_TEXT = '网页速览';
+            const SWIPE_MIN = 45;                  // 滑动翻页的最小水平位移(px)
+            /* 弹窗动画速度倍率：写进 :root 的 --modal-speed，CSS 里所有时长都由它换算。
+               调试面板（Ctrl+Shift+P）可以实时改，数值缓存在 localStorage。 */
+            const MODAL_SPEED_KEY = 'taiko.modalSpeed.v1';
+            const MODAL_SPEED_MIN = 0.25;
+            const MODAL_SPEED_MAX = 4;
+            const MODAL_BASE_SWITCH_MS = 167;      // 切换动画 = 10 帧 @60fps（20 帧的两倍速）
+            const MODAL_BASE_PUSH = 1870;          // 推入距离（素材像素），再乘以 --k
+            let modalPushDir = 1;                  // +1: 新块从右边推入；-1: 从左推入
+            let modalSpeed = loadModalSpeed();
+            let modalTargetUrl = '';               // 当前弹窗对应网址，供左侧挂牌点击跳转
+            let modalOrder = [];                   // 当前页面（工作表）里链接的顺序，翻页按它走
+            let modalPos = -1;                     // 当前弹窗对应 modalOrder 里的下标
+            let swipeGuardUntil = 0;               // 刚滑完的一小段时间内忽略 click，避免误触挂牌
+            let modalPaging = false;               // 正在推入/推出，动画中新的翻页请求先排队
+            let modalPending = 0;                  // 连按攒下的翻页请求，符号表示方向
+            let modalClosing = false;              // 正在关闭
+            let modalTimer = 0;                    // 翻页/关闭用的定时器
+
+            /* 给每条链接发一个 id：行内 onclick 只带 id，避免把整串网址塞进属性里 */
+            function registerLink(item) {
+                const id = ++linkSeq;
+                item.id = id;
+                linkStore[id] = item;
+                return item;
+            }
+
+            function modalElement() {
+                return document.getElementById('siteModal');
+            }
+
+            /* ---------- 弹窗动画速度（调试面板可调） ---------- */
+
+            function clampModalSpeed(value) {
+                const num = Number(value);
+                if (!isFinite(num) || num <= 0) return 1;
+                return Math.min(MODAL_SPEED_MAX, Math.max(MODAL_SPEED_MIN, Math.round(num * 100) / 100));
+            }
+
+            function loadModalSpeed() {
+                let saved = null;
+                try { saved = window.localStorage.getItem(MODAL_SPEED_KEY); } catch (e) { /* 无痕模式等 */ }
+                return saved === null ? 1 : clampModalSpeed(saved);
+            }
+
+            function applyModalSpeed() {
+                document.documentElement.style.setProperty('--modal-speed', String(modalSpeed));
+            }
+
+            function saveModalSpeed() {
+                try { window.localStorage.setItem(MODAL_SPEED_KEY, String(modalSpeed)); } catch (e) { /* 忽略 */ }
+            }
+
+            function setModalSpeed(value) {
+                modalSpeed = clampModalSpeed(value);
+                applyModalSpeed();
+                saveModalSpeed();
+                return modalSpeed;
+            }
+
+            /* JS 里的延时必须跟着 CSS 时长一起缩放，否则调快之后定时器会等太久 */
+            function modalSwitchDelay() {
+                return Math.round(MODAL_BASE_SWITCH_MS / modalSpeed) + 40;
+            }
+
+            applyModalSpeed();
+
+            /* 弹窗整体缩放 --k：桌面端按"挂牌 + 面板"并排算，窄屏只按面板宽度算，
+               挂牌另用一个更大的 --pk，免得在手机上缩成一个小点。
+               可用宽高直接量弹窗自身（position:fixed + inset:0），比 window.innerWidth
+               更可靠：后者在部分移动端/内嵌浏览器里会大于实际可视区域，导致面板溢出。 */
+            function updateModalScale() {
+                const modal = modalElement();
+                if (!modal || modal.hidden) return;
+                const stacked = window.innerWidth <= MODAL_STACK_BREAKPOINT;
+                const boxW = modal.clientWidth || window.innerWidth;
+                const boxH = modal.clientHeight || window.innerHeight;
+                const availW = Math.max(160, boxW - (stacked ? 12 : 24));
+                const availH = Math.max(240, boxH - (stacked ? 20 : 32));
+                let k;
+                if (stacked) {
+                    k = availW / 1522;
+                } else {
+                    k = Math.min(availW / MODAL_STAGE_WIDTH, availH / MODAL_STAGE_HEIGHT);
+                }
+                k = Math.min(Math.max(k, 0.14), 1);
+                modal.style.setProperty('--k', String(Math.round(k * 10000) / 10000));
+                /* 窄屏挂牌单独放大，但别太大：手机首屏高度有限，挂牌占太多会把卡片挤出屏幕 */
+                const pk = stacked ? Math.min(k * 1.8, 0.5) : k;
+                modal.style.setProperty('--pk', String(Math.round(pk * 10000) / 10000));
+                applyPushVars();
+            }
+
+            /* 推入距离直接由 JS 写成 px。
+               CSS 里虽然还有 --push: calc(1870px * var(--k)) 兜底，但那条 var() 链在
+               "第一次从 display:none 显示出来"时会慢一拍 —— 过渡的起点会取到还没
+               应用 --k 的 1870px，手机上（k≈0.24）就等于多跑 4 倍距离。
+               这里连 --push-in / --push-out 一起写死，避免再套一层 var()。 */
+            function applyPushVars() {
+                const modal = modalElement();
+                if (!modal) return;
+                const k = parseFloat(modal.style.getPropertyValue('--k'));
+                const px = MODAL_BASE_PUSH * ((isFinite(k) && k > 0) ? k : 1);
+                const inPx = modalPushDir > 0 ? px : -px;
+                modal.style.setProperty('--push', px.toFixed(2) + 'px');
+                modal.style.setProperty('--push-in', inPx.toFixed(2) + 'px');
+                modal.style.setProperty('--push-out', (-inPx).toFixed(2) + 'px');
+            }
+
+            function createModalCardHTML() {
+                let html = '';
+                for (let i = 0; i < MODAL_CARD_COUNT; i++) {
+                    html += '<div class="site-modal-card">' +
+                            '<div class="site-modal-shot" data-shot="' + (i + 1) + '"></div>' +
+                            '</div>';
+                }
+                return html;
+            }
+
+            function prettyHost(url) {
+                try { return new URL(url, window.location.href).hostname; } catch (e) { return url; }
+            }
+
+            /* 翻页顺序 = 当前选中的那张工作表里链接的排列顺序（与网格渲染顺序一致） */
+            function activeSheetLinkIds() {
+                const ids = [];
+                const sheet = sheets[activeSheet];
+                if (sheet) {
+                    sheet.sections.forEach(function(section) {
+                        section.links.forEach(function(link) { ids.push(link.id); });
+                    });
+                }
+                return ids;
+            }
+
+            /* 翻页在单张工作表内循环，所以两个箭头始终可用；
+               只有整页只剩一条链接时才把箭头收起来 */
+            function updateModalArrows() {
+                const modal = modalElement();
+                const prev = document.getElementById('siteArrowPrev');
+                const next = document.getElementById('siteArrowNext');
+                const canPage = modalOrder.length > 1;
+                if (modal) modal.classList.toggle('no-paging', !canPage);
+                if (prev) prev.disabled = !canPage;
+                if (next) next.disabled = !canPage;
+            }
+
+            /* 把数据填进弹窗 —— 只换内容，不碰动画状态 */
+            function fillSiteModal(data) {
+                const modal = modalElement();
+                const styleNum = Math.min(Math.max(parseInt(data.style, 10) || 1, 1), STYLE_COUNT);
+                const name = data.name || '';
+                const url = data.url || '';
+                const desc = data.desc || '';
+                const iconSrc = data.icon ? 'img/icon/' + data.icon : '';
+
+                /* 翻页位置：按当前工作表的链接顺序算 */
+                modalOrder = activeSheetLinkIds();
+                modalPos = modalOrder.indexOf(data.id);
+
+                /* 挂牌与左右装饰条都按同一下标取帧（0~5 对应 style-1~6） */
+                modal.style.setProperty('--idx', String(styleNum - 1));
+
+                /* 挂牌整块可点：点它就直接打开该网页 */
+                modalTargetUrl = url;
+
+                const plate = document.getElementById('siteModalPlate');
+                if (plate) {
+                    plate.innerHTML = iconSrc
+                        ? '<div class="icon-circle"><img src="' + escapeHTML(iconSrc) + '" alt="' +
+                          escapeHTML(name) + '" onerror="this.style.display=\'none\'"></div>'
+                        : '';
+                }
+
+                const head = document.getElementById('siteModalHead');
+                if (head) {
+                    let html = '<div class="site-modal-title">' + escapeHTML(name || '未命名页面') + '</div>';
+                    if (desc) html += '<p class="site-modal-desc">' + escapeHTML(desc) + '</p>';
+                    html += '<a class="site-modal-visit" href="' + escapeHTML(url) +
+                            '" target="_blank" rel="noopener noreferrer">' +
+                            '<span class="site-modal-visit-name">打开网站</span>' +
+                            '<span class="site-modal-visit-host">' + escapeHTML(prettyHost(url)) + '</span>' +
+                            '</a>';
+                    head.innerHTML = html;
+                }
+
+                const tab = document.getElementById('siteModalTab');
+                if (tab) tab.textContent = MODAL_TAB_TEXT;
+
+                const cards = document.getElementById('siteModalCards');
+                if (cards) cards.innerHTML = createModalCardHTML();
+
+                updateModalArrows();
+            }
+
+            /* 从入场起点（--push-in 一侧）推入归位 */
+            function showSiteModal() {
+                const modal = modalElement();
+                if (!modal) return;
+                modalClosing = false;
+                modal.hidden = false;
+                modal.classList.remove('closing', 'paging-in');
+                removeModalGhost();
+                modal.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('modal-open');
+                /* 先把尺寸和推入距离算好，这一步要禁掉过渡：
+                   否则 --push-in 从"还没算出 --k"的基准值变到正确值这件事本身
+                   也会跑一段位移过渡，真正的入场过渡就会从那个错误起点开始
+                   （手机上 k≈0.3，等于多跑 3 倍距离、快 3 倍）。 */
+                modal.classList.add('paging-snap');
+                updateModalScale();
+                void modal.offsetHeight;
+                modal.classList.remove('paging-snap');
+                void modal.offsetHeight;   // 让无过渡的起点落地，入场过渡才从它开始
+                modal.classList.add('show');
+            }
+
+            /* 打开：从右往左错开一点点淡入（不从屏幕外飞入） */
+            function openSiteModal(data) {
+                const modal = modalElement();
+                if (!modal || !data || !data.url) return;
+                window.clearTimeout(modalTimer);
+                modalPaging = false;
+                modalPending = 0;
+                modal.classList.remove('paging', 'paging-snap', 'paging-in');
+                removeModalGhost();
+                modalPushDir = 1;
+                applyPushVars();
+                fillSiteModal(data);
+                if (modal.hidden || !modal.classList.contains('show')) showSiteModal();
+            }
+
+            /* ---------- 翻页的"上一块"叠加层 ----------
+               翻页时把当前这块整体克隆一份摆在旁边，和新的那块一起朝同一方向
+               平移同样的距离 —— 旧块被推出屏幕，新块推入。
+               两块始终隔着一个 --push，互相保持相对静止，就是"推"的感觉，
+               全程不改变透明度，不做叠化。 */
+            function makeModalGhost() {
+                const modal = modalElement();
+                const stage = modal && modal.querySelector('.site-modal-stage');
+                if (!stage) return null;
+                const ghost = document.createElement('div');
+                ghost.className = 'site-modal-ghost';
+                ghost.setAttribute('aria-hidden', 'true');
+                Array.prototype.slice.call(stage.children).forEach(function(child) {
+                    ghost.appendChild(child.cloneNode(true));
+                });
+                /* 克隆里的 id 会和真正那份撞车，去掉（脚本靠 id 找元素） */
+                Array.prototype.slice.call(ghost.querySelectorAll('[id]')).forEach(function(el) {
+                    el.removeAttribute('id');
+                });
+                return ghost;
+            }
+
+            function removeModalGhost() {
+                const modal = modalElement();
+                const ghost = modal && modal.querySelector('.site-modal-ghost');
+                if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+            }
+
+            /* 左右翻页：delta = -1 上一页 / +1 下一页。
+               看下一个 → 新旧两块一起向左平移一个 --push：旧块被推出左边，新块从右边推入；
+               看上一个 → 整体反过来。
+               顺序在整张工作表内首尾相接：最后一条的下一个回到第一条。
+               连按不会丢：正在跑动画时先把请求记下来，跑完接着跑。 */
+            function stepSiteModal(delta) {
+                const modal = modalElement();
+                if (!modal || modal.hidden || modalClosing) return;
+                if (modalPos < 0 || modalOrder.length < 2) return;
+
+                modalPending += delta;
+                if (modalPaging) return;      // 动画中，先排队
+                pumpModalQueue();
+            }
+
+            /* 把排队的翻页请求一条条放出来 */
+            function pumpModalQueue() {
+                if (modalPaging || !modalPending) return;
+                const delta = modalPending > 0 ? 1 : -1;
+                modalPending -= delta;
+                pushModalPage(delta);
+            }
+
+            function pushModalPage(delta) {
+                const modal = modalElement();
+                if (!modal || modal.hidden) return;
+                if (modalPos < 0 || modalOrder.length < 2) return;
+
+                const len = modalOrder.length;
+                const next = ((modalPos + delta) % len + len) % len;   // 单页内循环
+                const data = linkStore[modalOrder[next]];
+                if (!data) return;
+
+                modalPaging = true;
+                window.clearTimeout(modalTimer);
+
+                /* 方向：新的一块从哪边推入、旧的一块往哪边推出 */
+                modalPushDir = delta > 0 ? 1 : -1;
+                applyPushVars();
+
+                /* 1) 先把"上一块"摆在旁边（此时 modal 还没加 .paging，它停在起始位置） */
+                removeModalGhost();
+                const stage = modal.querySelector('.site-modal-stage');
+                const ghost = makeModalGhost();
+                if (stage && ghost) stage.appendChild(ghost);
+
+                /* 2) 无过渡地把新内容摆到入场起点（屏幕另一侧外面一点） */
+                modal.classList.add('paging-snap', 'paging-in');
+                fillSiteModal(data);
+                void modal.offsetHeight;
+
+                /* 3) 两块同时开跑：旧块推出并淡出到 --push-out，新块推入归位 */
+                modal.classList.remove('paging-snap', 'paging-in');
+                modal.classList.add('paging');
+                void modal.offsetHeight;
+
+                /* 4) 动画结束后收掉叠加层，有排队的就接着跑下一条 */
+                modalTimer = window.setTimeout(function() {
+                    modalPaging = false;
+                    if (modal.hidden) return;
+                    modal.classList.remove('paging');
+                    removeModalGhost();
+                    pumpModalQueue();
+                }, modalSwitchDelay());
+            }
+
+            function closeSiteModal() {
+                const modal = modalElement();
+                if (!modal || modal.hidden || modalClosing) return;
+                modalClosing = true;
+                window.clearTimeout(modalTimer);
+                modalPaging = false;
+                modalPending = 0;
+                modal.classList.remove('paging', 'paging-snap', 'paging-in');
+                removeModalGhost();
+                modalPushDir = 1;   // 关闭固定向左推出
+                applyPushVars();
+                modal.classList.remove('show');
+                modal.classList.add('closing');
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('modal-open');
+                window.setTimeout(function() {
+                    if (modal.classList.contains('show')) { modalClosing = false; return; }
+                    modal.hidden = true;
+                    modal.classList.remove('closing');
+                    modalClosing = false;
+                }, modalSwitchDelay() + 50);   // 略长于切换动画，避免还没淡完就被抽掉
+            }
+
+            /* 供图板的行内 onclick 调用 */
+            window.TAIKO_OPEN_INFO = function(id) {
+                const data = linkStore[id];
+                if (data) openSiteModal(data);
+            };
+
+            /* ========== 弹窗调试接口 ==========
+               供文件末尾的 Ctrl+Shift+P 面板调"翻页/开合动画速度"；正常浏览时不会被调用。 */
+            window.TAIKO_MODAL_DEBUG = {
+                storageKey: MODAL_SPEED_KEY,
+                min: MODAL_SPEED_MIN,
+                max: MODAL_SPEED_MAX,
+                get: function() { return modalSpeed; },
+                set: setModalSpeed,
+                reset: function() { return setModalSpeed(1); },
+                isOpen: function() {
+                    const modal = modalElement();
+                    return !!modal && !modal.hidden;
+                },
+                /* 试放一次：弹窗没开就打开当前页第一条，已经开着就翻到下一页 */
+                preview: function() {
+                    const ids = activeSheetLinkIds();
+                    if (!ids.length) return false;
+                    const modal = modalElement();
+                    if (!modal || modal.hidden) {
+                        const first = linkStore[ids[0]];
+                        if (!first) return false;
+                        openSiteModal(first);
+                        return true;
+                    }
+                    stepSiteModal(1);
+                    return true;
+                }
+            };
+
+            const modalRoot = modalElement();
+            if (modalRoot) {
+                /* 除面板、挂牌与翻页箭头以外，点哪儿都退出 —— 与底部提示文字的说法保持一致
+                   （只判 e.target === modalRoot 的话，面板与挂牌之间那条窄缝点了没反应）。 */
+                modalRoot.addEventListener('click', function(e) {
+                    if (Date.now() < swipeGuardUntil) return;   // 刚滑动完，忽略尾随的 click
+                    const t = e.target;
+                    if (t && t.closest && (t.closest('.site-modal-panel') ||
+                                           t.closest('.site-modal-plate') ||
+                                           t.closest('.site-arrow'))) return;
+                    closeSiteModal();
+                });
+
+                const modalPlate = document.getElementById('siteModalPlate');
+                if (modalPlate) {
+                    /* 点挂牌 = 直接访问该网页（与图板下方名称的跳转行为一致） */
+                    modalPlate.addEventListener('click', function() {
+                        if (Date.now() < swipeGuardUntil) return;
+                        if (modalTargetUrl) window.open(modalTargetUrl, '_blank');
+                    });
+                }
+
+                const arrowPrev = document.getElementById('siteArrowPrev');
+                const arrowNext = document.getElementById('siteArrowNext');
+                if (arrowPrev) arrowPrev.addEventListener('click', function() { stepSiteModal(-1); });
+                if (arrowNext) arrowNext.addEventListener('click', function() { stepSiteModal(1); });
+
+                /* ---------- 左右滑动翻页 ----------
+                   只在位移足够大、且明显偏水平时才翻页，
+                   否则会和弹窗自身的纵向滚动打架。 */
+                let touchX = 0, touchY = 0, touching = false;
+                modalRoot.addEventListener('touchstart', function(e) {
+                    if (e.touches.length !== 1) { touching = false; return; }
+                    touching = true;
+                    touchX = e.touches[0].clientX;
+                    touchY = e.touches[0].clientY;
+                }, { passive: true });
+
+                modalRoot.addEventListener('touchend', function(e) {
+                    if (!touching) return;
+                    touching = false;
+                    const t = e.changedTouches && e.changedTouches[0];
+                    if (!t) return;
+                    const dx = t.clientX - touchX;
+                    const dy = t.clientY - touchY;
+                    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+                    swipeGuardUntil = Date.now() + 420;
+                    stepSiteModal(dx < 0 ? 1 : -1);   // 往左滑看下一个
+                }, { passive: true });
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' || e.key === 'Esc') { closeSiteModal(); return; }
+                const modal = modalElement();
+                if (!modal || modal.hidden) return;
+                if (e.key === 'ArrowLeft') { e.preventDefault(); stepSiteModal(-1); }
+                else if (e.key === 'ArrowRight') { e.preventDefault(); stepSiteModal(1); }
+            });
 
             /* ========== 工作表 -> 分区 ========== */
 
@@ -883,38 +1846,69 @@
                         continue;
                     }
                     if (!name && !url) continue;                 // 跳过空行
-                    current.links.push({
+                    current.links.push(registerLink({
                         name: name,
                         url: url,
                         desc: row[2] || '',
                         icon: row[3] || '',
                         style: parseInt(row[4]) || 1
-                    });
+                    }));
                 }
                 return sections.filter(function(section) {
                     return section.links.length > 0 || section.title;
                 });
             }
 
+            /* 万一 vendor/ 那份丢了（比如只把 index.html 拷走），再去 CDN 兜一次底。
+               拿不到就返回 false，交给下面给出准确的报错，而不是让 XLSX is not defined 蒙混过去。 */
+            const XLSX_CDN_FALLBACK = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+            let xlsxFallbackPromise = null;
+            function ensureXLSX() {
+                if (typeof XLSX !== 'undefined') return Promise.resolve(true);
+                if (xlsxFallbackPromise) return xlsxFallbackPromise;
+                xlsxFallbackPromise = new Promise(function(resolve) {
+                    const s = document.createElement('script');
+                    s.src = XLSX_CDN_FALLBACK;
+                    s.onload = function() { resolve(typeof XLSX !== 'undefined'); };
+                    s.onerror = function() { resolve(false); };
+                    document.head.appendChild(s);
+                });
+                return xlsxFallbackPromise;
+            }
+
             /* 读取 data.xlsx 的全部工作表 */
             (async function loadData() {
+                let failure = null;
                 try {
-                    const response = await fetch('data.xlsx');
-                    if (!response.ok) throw new Error('Network error');
-                    const arrayBuffer = await response.arrayBuffer();
-                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                    workbook.SheetNames.forEach(function(sheetName) {
-                        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
-                        sheets.push({ name: sheetName, sections: parseSections(rows) });
-                    });
-                    const fromHash = sheets.findIndex(function(sheet) { return sheet.name === currentHashName(); });
-                    activeSheet = fromHash >= 0 ? fromHash : 0;
+                    if (!(await ensureXLSX())) {
+                        failure = '解析库没加载出来，读不了 xlsx。请确认 vendor/xlsx.full.min.js 还在，' +
+                                  '或者能连上 cdn.jsdelivr.net。';
+                    } else {
+                        const response = await fetch('data.xlsx');
+                        if (!response.ok) {
+                            failure = '请求 data.xlsx 失败（HTTP ' + response.status +
+                                      '）。请确认该文件与 index.html 位于同一目录。';
+                        } else {
+                            const arrayBuffer = await response.arrayBuffer();
+                            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                            workbook.SheetNames.forEach(function(sheetName) {
+                                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+                                sheets.push({ name: sheetName, sections: parseSections(rows) });
+                            });
+                            const fromHash = sheets.findIndex(function(sheet) { return sheet.name === currentHashName(); });
+                            activeSheet = fromHash >= 0 ? fromHash : 0;
+                        }
+                    }
                 } catch (e) {
                     console.error('加载 data.xlsx 出错', e);
-                } finally {
-                    renderTabs();
-                    renderAll();
+                    failure = '读取 data.xlsx 出错：' + (e && e.message ? e.message : e);
                 }
+                if (failure) {
+                    loadError = failure;
+                    console.error('[TaikoNavigation] ' + failure);
+                }
+                renderTabs();
+                renderAll();
             })();
 
             const tabBar = document.getElementById('sheetTabs');
@@ -948,6 +1942,7 @@
                     const isMobile = window.innerWidth <= 768;
                     if (isMobile !== lastIsMobile) renderAll();   // 行列数变化，需要重绘
                     else updateMobileScale();
+                    updateModalScale();                           // 弹窗打开时同步跟随窗口变化
                 }, 250);
             });
 
@@ -1019,6 +2014,7 @@
 
             const BRIDGE = window.TAIKO_ICON_DEBUG;
             if (!BRIDGE) return;
+            const MODAL_BRIDGE = window.TAIKO_MODAL_DEBUG;   // 可能不存在（老页面），下面都做空值保护
 
             const STYLE_COUNT = BRIDGE.styleCount || 6;
             const ZOOMS = [3, 6, 10, 16];
@@ -1027,6 +2023,7 @@
             const STEP_COARSE = 1;
             const STEP_FINE = 0.01;
             const LOUPE_INTERVAL = 60;   // 放大镜刷新间隔(ms)
+            const SPEED_PRESETS = [0.5, 0.75, 1, 1.5, 2, 3];   // 弹窗动画速度倍率预设
 
             const state = {
                 on: false,
@@ -1045,6 +2042,7 @@
             let rowStyle = null;
             let rowValue = null;
             let rowDefault = null;
+            let rowSpeed = null;
             let statusEl = null;
             let outWrap = null;
             let outArea = null;
@@ -1158,13 +2156,21 @@
                     '<div class="row" id="dbgRowDefault"></div>',
                     '<div class="loupe"><canvas id="dbgCanvas"></canvas><div class="loupe-hint" id="dbgLoupeHint"></div></div>',
                     '<div class="keys">1-6 选种类 · ↑↓←→ 0.1px · Shift 1px · Ctrl 0.01px<br>',
-                    'Z 缩放 · M 平滑 · T 半透明 · H 压暗 · O 输出 · R 重置 · U 撤销</div>',
+                    'Z 缩放 · M 平滑 · T 半透明 · H 压暗 · O 输出 · R 重置 · U 撤销<br>',
+                    '弹窗动画速度：[ 慢 · ] 快 · P 试放翻页</div>',
                     '<div class="row"><button type="button" data-act="output">输出 (O)</button>',
                     '<button type="button" data-act="copy">复制</button>',
                     '<button type="button" data-act="download">下载 txt</button></div>',
                     '<div class="row"><button type="button" data-act="reset-one">重置本种类 (R)</button>',
                     '<button type="button" data-act="reset-all">重置本模式全部</button>',
                     '<button type="button" data-act="close">关闭</button></div>',
+                    '<h4 style="margin-top:10px;">弹窗动画速度</h4>',
+                    '<div class="row" id="dbgRowSpeed"></div>',
+                    '<div class="row"><span class="k">快慢</span>',
+                    '<button type="button" data-act="speed-down">慢一点 [</button>',
+                    '<button type="button" data-act="speed-up">快一点 ]</button>',
+                    '<button type="button" data-act="speed-reset">恢复 1×</button></div>',
+                    '<div class="row"><button type="button" data-act="speed-preview">试放翻页动画 (P)</button></div>',
                     '<div class="status" id="dbgStatus"></div>',
                     '<div id="dbgOutWrap" hidden><textarea id="dbgOut" readonly spellcheck="false"></textarea></div>'
                 ].join('');
@@ -1176,6 +2182,7 @@
                 rowStyle = panel.querySelector('#dbgRowStyle');
                 rowValue = panel.querySelector('#dbgRowValue');
                 rowDefault = panel.querySelector('#dbgRowDefault');
+                rowSpeed = panel.querySelector('#dbgRowSpeed');
                 statusEl = panel.querySelector('#dbgStatus');
                 outWrap = panel.querySelector('#dbgOutWrap');
                 outArea = panel.querySelector('#dbgOut');
@@ -1196,7 +2203,18 @@
                     else if (act === 'download') downloadOutput();
                     else if (act === 'reset-one') resetOne();
                     else if (act === 'reset-all') resetAll();
+                    else if (act === 'speed-down') nudgeSpeed(1 / 1.25);
+                    else if (act === 'speed-up') nudgeSpeed(1.25);
+                    else if (act === 'speed-reset') resetSpeed();
+                    else if (act === 'speed-preview') previewModal();
                     else if (act === 'close') disable();
+                });
+
+                /* 速度预设 chip */
+                panel.addEventListener('click', function(e) {
+                    const chip = e.target && e.target.closest ? e.target.closest('.chip[data-speed]') : null;
+                    if (!chip) return;
+                    applySpeed(parseFloat(chip.getAttribute('data-speed')), true);
                 });
             }
 
@@ -1226,6 +2244,8 @@
                 const base = defaultsOf(m)[index];
                 rowDefault.innerHTML = '<span class="k">文件默认</span>dx ' + signed(base.dx) + '  dy ' + signed(base.dy) +
                     (isDirty(m, index) ? '<span class="v dirty">已修改</span>' : '<span class="k">未修改</span>');
+
+                renderSpeedRow();
             }
 
             /* ---------------- 底板取样与放大镜 ---------------- */
@@ -1626,8 +2646,8 @@
                 startObserver();
                 renderPanel();
                 startLoop();
-                setStatus('数字键选种类，方向键微调，O 输出');
-                console.log('[TaikoNavigation] 图标偏移调试已开启：1-6 选种类，方向键 0.1px 微调，O 输出结果');
+                setStatus('数字键选种类，方向键微调，O 输出；[ ] 调弹窗动画速度，P 试放');
+                console.log('[TaikoNavigation] 调试面板已开启：1-6 选种类，方向键 0.1px 微调，O 输出结果；[ / ] 调弹窗动画速度，P 试放翻页');
             }
 
             function disable() {
@@ -1643,6 +2663,66 @@
 
             function isArrowKey(key) {
                 return key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown';
+            }
+
+            /* ---------------- 弹窗动画速度 ---------------- */
+
+            function speedValue() {
+                return (MODAL_BRIDGE && MODAL_BRIDGE.get) ? MODAL_BRIDGE.get() : 1;
+            }
+
+            function speedText(v) {
+                return (Math.round(v * 100) / 100) + '×';
+            }
+
+            /* 切换动画的基准时长：10 帧 @60fps。显示时换算成秒与帧数 */
+            function switchSeconds(v) { return 0.1667 / v; }
+            function switchFrames(v) { return Math.round(10 / v); }
+
+            function applySpeed(value, announce) {
+                if (!MODAL_BRIDGE) { setStatus('当前页面没有弹窗调速接口'); return; }
+                const v = MODAL_BRIDGE.set(value);
+                renderSpeedRow();
+                if (announce) {
+                    setStatus('切换动画 ' + speedText(v) + '：' + switchSeconds(v).toFixed(3) + 's / ' +
+                              switchFrames(v) + ' 帧（前 6 成匀速，后 4 成匀减速到 0）');
+                }
+                return v;
+            }
+
+            function nudgeSpeed(factor) {
+                applySpeed(speedValue() * factor, true);
+            }
+
+            function resetSpeed() {
+                if (!MODAL_BRIDGE) return;
+                applySpeed(MODAL_BRIDGE.reset(), true);
+            }
+
+            function previewModal() {
+                if (!MODAL_BRIDGE || !MODAL_BRIDGE.preview) { setStatus('当前页面没有弹窗调速接口'); return; }
+                const wasOpen = MODAL_BRIDGE.isOpen && MODAL_BRIDGE.isOpen();
+                const ok = MODAL_BRIDGE.preview();
+                setStatus(!ok ? '当前工作表没有可预览的链接'
+                              : (wasOpen ? '翻到下一页，看看速度' : '打开弹窗，看看速度'));
+            }
+
+            function renderSpeedRow() {
+                if (!rowSpeed) return;
+                if (!MODAL_BRIDGE) {
+                    rowSpeed.innerHTML = '<span class="k">本页无弹窗调速接口</span>';
+                    return;
+                }
+                const v = speedValue();
+                let chips = '<span class="k">倍率</span><span class="v">' + speedText(v) + '</span>' +
+                            '<span class="k">全程</span>' + switchSeconds(v).toFixed(3) + 's / ' +
+                            switchFrames(v) + ' 帧';
+                let presetHtml = '<span class="k">预设</span>';
+                SPEED_PRESETS.forEach(function(p) {
+                    presetHtml += '<span class="chip' + (Math.abs(p - v) < 0.001 ? ' active' : '') +
+                                  '" data-speed="' + p + '">' + p + '×</span>';
+                });
+                rowSpeed.innerHTML = chips + '<br>' + presetHtml;
             }
 
             function onKeyDown(e) {
@@ -1662,6 +2742,9 @@
                     disable();
                     return;
                 }
+
+                /* 弹窗开着时方向键留给弹窗翻页，别被抢过来微调图标 */
+                if (MODAL_BRIDGE && MODAL_BRIDGE.isOpen && MODAL_BRIDGE.isOpen() && isArrowKey(e.key)) return;
 
                 /* 保留 Ctrl+C / Ctrl+V 等组合键；在输入框里打字时不抢键 */
                 if ((e.ctrlKey || e.metaKey) && !isArrowKey(e.key)) return;
@@ -1689,6 +2772,9 @@
                     case 't': case 'T': toggleGhost(); break;
                     case 'h': case 'H': toggleDim(); break;
                     case 'u': case 'U': restoreUndo(); break;
+                    case '[': case '【': nudgeSpeed(1 / 1.25); break;
+                    case ']': case '】': nudgeSpeed(1.25); break;
+                    case 'p': case 'P': previewModal(); break;
                     default: handled = false;
                 }
                 if (handled) {
