@@ -2266,21 +2266,32 @@
             }
 
             /* 解析库只用本地那一份（vendor/xlsx.full.min.js，来自 npm 包 xlsx 的 dist）。
-               以前这里会往 cdn.jsdelivr.net 兜一次底，现在全部去掉：
-               整个页面不再有任何外部请求，离线 / 内网 / CDN 抖动都不影响加载。
+               不往任何 CDN 兜底：整个页面没有任何外部请求，离线 / 内网 / CDN 抖动都不影响加载。
                没加载出来就返回 false，交给下面给出准确的报错，
-               而不是让 XLSX is not defined 蒙混过去。 */
+               而不是让 XLSX is not defined 蒙混过去。
+
+               注意 <script src> 失败时浏览器有时会把那次失败（比如部署切换瞬间的一次 404）
+               连同缓存头一起存下来，之后再访问就一直失败 —— 文件明明是好的。
+               所以这里再拉一次，并挂一个一次性查询参数绕开缓存；仍然只用本地那一份。 */
             function ensureXLSX() {
-                return typeof XLSX !== 'undefined';
+                if (typeof XLSX !== 'undefined') return Promise.resolve(true);
+                return new Promise(function(resolve) {
+                    const s = document.createElement('script');
+                    s.src = 'vendor/xlsx.full.min.js?retry=' + Date.now();
+                    s.onload = function() { resolve(typeof XLSX !== 'undefined'); };
+                    s.onerror = function() { resolve(false); };
+                    document.head.appendChild(s);
+                });
             }
 
             /* 读取 data.xlsx 的全部工作表 */
             (async function loadData() {
                 let failure = null;
                 try {
-                    if (!ensureXLSX()) {
+                    if (!(await ensureXLSX())) {
                         failure = '解析库没加载出来，读不了 xlsx。请确认 vendor/xlsx.full.min.js 还在' +
-                                  '（它就是 npm 包 xlsx 的 dist 文件）。';
+                                  '（它就是 npm 包 xlsx 的 dist 文件）。' +
+                                  '如果文件在、只是刚更新过页面，按 Ctrl+Shift+R 强制刷新一次即可。';
                     } else {
                         const response = await fetch('data.xlsx');
                         if (!response.ok) {
