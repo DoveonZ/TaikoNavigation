@@ -4,13 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>TaikoNavigation - 太鼓达人导航</title>
-    <!-- 解析 data.xlsx 用的 SheetJS。以前直接引 cdn.sheetjs.com，
-         那个域名一旦握手超时整个导航页就只剩"无法加载 data.xlsx"。
-         现在改成自带一份（vendor/xlsx.full.min.js），
-         万一本地那份丢了，脚本里还会自动去 CDN 兜一次底。 -->
+    <!-- 解析 data.xlsx 用的 SheetJS，只引本地这一份：vendor/xlsx.full.min.js，
+         它就是 npm 包 xlsx 的 dist 文件（要换新版本就更新它，例如
+         npm i xlsx 后把 node_modules/xlsx/dist/xlsx.full.min.js 拷到 vendor/）。
+         不再走任何 CDN 兜底：离线/内网照常可用，也不会因为外部地址变动、
+         握手超时或域名被墙而让整个导航页只剩一句"无法加载 data.xlsx"。 -->
     <script src="vendor/xlsx.full.min.js"></script>
     <style>
+        /* 方正粗圆_GBK。注意这个字体真正的族名是 FZCuYuan-M03（nameID 1/4），
+           文件名里的"方正粗圆_GBK"只是 Windows 给的文件名。
+           字体栈里先放系统族名：装了这字体的人（比如本机）直接用系统的，
+           一个字都不用下载；没装的才回落到下面这份自带的 WOFF2。
+           所以下面的 @font-face 平时根本不会被触发，只用于分享/换机时兜底。 */
+        @font-face {
+            font-family: 'FZCuYuan';
+            src: url('font/FZCuYuan-GBK.woff2') format('woff2');
+            font-weight: 400 700;
+            font-display: swap;
+        }
         :root {
+            --font-round: 'FZCuYuan-M03', '方正粗圆_GBK', 'FZCuYuan', 'PingFang SC',
+                          'Microsoft YaHei', 'Hiragino Sans GB', sans-serif;
             --gold: #cc9c56;
             --black: #000000;
             --white: #ffffff;
@@ -31,7 +45,7 @@
             --columns: 12;
             --gap-h: 14px;
             --content-max-width: 1680px;
-            --bg-image: url('img/background.png');
+            --bg-image: url('img/background.webp');
             --scale: 1;
 
             /* 弹窗切换动画。基准 0.1667s ≈ 60fps 下的 10 帧（原 20 帧的速度两倍），
@@ -419,6 +433,7 @@
             text-align: center;
             flex-shrink: 0;
             color: var(--white);
+            font-family: var(--font-round);
             font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 0.03em;
@@ -478,6 +493,11 @@
         .site-modal {
             position: fixed;
             inset: 0;
+            /* 移动端浏览器地址栏收起/展开会改变可视高度：inset:0 拿到的是"布局视口"，
+               底部可能被工具栏挡住。用 dvh 跟着实际可视高度走（不支持的浏览器退回 vh）。
+               top+height 同时给了之后 bottom 会被忽略，所以不会互相打架。 */
+            height: 100vh;
+            height: 100dvh;
             z-index: 900;
             display: flex;
             align-items: flex-start;
@@ -857,36 +877,143 @@
             min-height: calc(417px * var(--k));
         }
 
-        /* ---------- 下方卡位：GaugeCondition_Bar.png ---------- */
+        /* ---------- 下方卡位：GaugeCondition_Bar.png ----------
+           卡片数量跟着预览图的实际张数走（没有图的卡不建）。
+           用 flex 而不是 grid，是为了让不足三张时居中，
+           同时每张卡的宽度仍固定为"三列时的一列"，不会因为只剩一张就被拉大。 */
         .site-modal-cards {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: calc(40px * var(--k));
             padding: calc(90px * var(--k)) 0;
         }
         .site-modal-card {
             position: relative;
+            flex: 0 0 auto;
+            width: calc((100% - 80px * var(--k)) / 3);
             aspect-ratio: 333 / 184;   /* = GaugeCondition_Bar.png 的原始比例，保证不拉伸变形 */
             background-image: url('img/GaugeCondition_Bar.png');
             background-repeat: no-repeat;
             background-size: 100% 100%;
         }
-        /* 每张卡片里预留的 16:9 预览图位。现在没有图片，保持透明；
-           后续给对应卡片设置 background-image 即可（background-size: contain 会保持 16:9 不被裁切）。 */
+        /* 没有备注的卡片：不套 GaugeCondition_Bar.png 的卡框、也不放 title.png 备注条，
+           直接让图片铺满整块卡位，四周描一圈 (148,128,95)。
+           描边用"外层铺底色 + 图片内缩"来做，而不是 border ——
+           border-width 不认百分比，固定像素在大卡/小卡上粗细会不一致；
+           这样写描边永远是卡宽的 0.6%（= 素材里的 2/333），跟有备注的卡一样粗。 */
+        .site-modal-card.plain {
+            background-image: none;
+            background-color: #94805f;                 /* = rgb(148,128,95) */
+            border-radius: 6% / 10.87%;                /* 外圆角 20（20/333、20/184） */
+        }
+        .site-modal-card.plain .site-modal-shot {
+            left: 0.6%;
+            top: 1.09%;
+            right: 0.6%;
+            bottom: 1.09%;
+            width: auto;
+            height: auto;
+            border-radius: 5.4% / 9.78%;               /* 内圆角 18 */
+        }
+        /* 预览图：裁成圆角矩形铺在卡片内芯里。
+           四边都要让出 GaugeCondition_Bar.png 自己的描边，所以按素材里
+           "描边内沿"来定：左 x=5、右 x=320、上 y=25、下 y=172（以 333×184 为准），
+           再各留 1 像素余量，免得抗锯齿把描边吃掉。 */
         .site-modal-shot {
             position: absolute;
-            left: 3%;
-            top: 11%;
-            width: 94%;
-            height: 82%;
-            border-radius: max(6px, calc(22px * var(--k)));
+            left: 1.80%;
+            top: 14.13%;
+            width: 94.29%;
+            height: 79.35%;
+            /* 内芯圆角 ≈18（外圆角 20 减描边 2）。用百分比写成椭圆半径，
+               这样在任何卡片尺寸下都跟着缩放，不依赖 --k。 */
+            border-radius: 5.4% / 9.8%;
             overflow: hidden;
             background-repeat: no-repeat;
             background-position: center;
-            background-size: contain;
+            background-size: cover;    /* 裁剪填满，不改比例 */
+            cursor: zoom-in;
+        }
+        /* title.png = GaugeCondition_Bar.png 里那个丸形标签的高清版（同色同比例），
+           摆在同一个位置盖住它，用来写这张预览图的备注。
+           元素尺寸按"让 title.png 里画出来的那颗丸形恰好盖住精灵图那颗"反推：
+           精灵图丸形 x 28~297 / y 5~42；title.png 里丸形占画布 x 10~681 / y 9~96。 */
+        .site-modal-card-title {
+            position: absolute;
+            left: 7.2%;
+            top: 0.5%;
+            width: 86%;
+            height: 30.2%;
+            z-index: 2;
+            background-image: url('img/title.png');
+            background-repeat: no-repeat;
+            background-size: 100% 100%;
+            pointer-events: none;
+        }
+        /* 文字压在 title.png 内芯的竖向中心（126 高的画布里内芯在 y 14~91，中心 41.7%） */
+        .site-modal-card-title span {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 41.7%;
+            transform: translateY(-50%);
+            padding: 0 7%;
+            text-align: center;
+            color: #4a3520;
+            font-family: var(--font-round);
+            font-size: clamp(11px, calc(21px * var(--k)), 21px);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* 没有关闭按钮：点面板以外的空白处即可退出（见脚本里的遮罩点击） */
+
+        /* ---------- 点预览图后的放大预览 ---------- */
+        .intro-lightbox {
+            position: fixed;
+            inset: 0;
+            height: 100vh;
+            height: 100dvh;           /* 同弹窗：跟着移动端实际可视高度走 */
+            z-index: 960;             /* 盖在弹窗（900）之上 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2.2vh;
+            padding: 3vh 3vw;
+            background: rgba(10, 8, 4, 0.9);
+            cursor: zoom-out;
+            opacity: 0;
+            transition: opacity 0.18s ease;
+        }
+        .intro-lightbox[hidden] { display: none; }
+        .intro-lightbox.show { opacity: 1; }
+        .intro-lightbox img {
+            max-width: 94vw;
+            max-height: 82vh;
+            max-height: 82dvh;
+            border-radius: 14px;
+            border: 2px solid rgba(148, 128, 95, 0.9);   /* 和卡片描边同一色 */
+            background: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.62);
+            cursor: zoom-out;
+        }
+        .intro-lightbox-cap {
+            margin: 0;
+            color: #f8f5e1;
+            font-size: clamp(13px, 2.4vh, 22px);
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-indent: 0.12em;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.75);
+            text-align: center;
+        }
+        .intro-lightbox-cap:empty { display: none; }
 
         /* 窄屏：翻页箭头夹到挂牌两侧，面板另起一行；
            卡片两列（列数少了弹窗会高得放不进 16:9 手机屏）。 */
@@ -925,11 +1052,21 @@
                 padding: calc(28px * var(--k)) calc(80px * var(--k)) calc(14px * var(--k)) calc(80px * var(--k));
             }
             .site-modal-cards {
-                grid-template-columns: repeat(2, 1fr);
                 gap: calc(30px * var(--k));
                 padding: calc(30px * var(--k)) 0;
             }
+            /* 窄屏只放两列，卡宽跟着改成"两列时的一列" */
+            .site-modal-card { width: calc((100% - 30px * var(--k)) / 2); }
             .site-modal-hint { font-size: 12px; }
+        }
+
+        /* 矮屏（老手机横屏、小窗、带工具栏的浏览器）：把能省的纵向留白收掉，
+           尽量让整块弹窗不用滚动就能看全。真放不下时弹窗本身可以纵向滚（overflow-y: auto）。 */
+        @media (max-width: 760px) and (max-height: 760px) {
+            .site-modal { padding: 6px 6px; }
+            .site-modal-head { padding-top: calc(16px * var(--k)); padding-bottom: 0; }
+            .site-modal-cards { padding: calc(14px * var(--k)) 0; }
+            .site-modal-main { row-gap: calc(6px * var(--k)); }
         }
 
         @media (max-width: 768px) {
@@ -1018,6 +1155,13 @@
             </div>
             <p class="site-modal-hint">点击面板以外的空白处退出</p>
         </div>
+    </div>
+
+    <!-- 点预览图后的放大预览。放在弹窗外面单独一层，点任意处或 Esc 退出。 -->
+    <div class="intro-lightbox" id="introLightbox" hidden role="dialog" aria-modal="true"
+         aria-label="放大预览">
+        <img id="introLightboxImg" alt="">
+        <p class="intro-lightbox-cap" id="introLightboxCap"></p>
     </div>
 
     <script>
@@ -1214,7 +1358,9 @@
 
             function createPlateHTML(linkData, index) {
                 const hasLink = linkData && linkData.url;
-                const styleNum = linkData ? linkData.style : ((index % 6) + 1);
+                /* style 可能是 null（简略页写不出样式、或完整表里也没填），
+                   那就按列号循环取底板样式，保证 12 / 6 列都能整除循环 */
+                const styleNum = (linkData && linkData.style) ? linkData.style : ((index % 6) + 1);
                 const iconSrc = linkData && linkData.icon ? 'img/icon/' + linkData.icon : '';
                 const name = linkData ? linkData.name : '';
                 const isEmpty = !hasLink;
@@ -1226,12 +1372,27 @@
                 if (hasLink) html += ' onclick="window.TAIKO_OPEN_INFO(' + linkData.id + ')" style="cursor:pointer;"';
                 html += '>';
                 if (hasLink && iconSrc) {
-                    html += '<div class="icon-circle"><img src="' + escapeHTML(iconSrc) +
-                            '" alt="' + escapeHTML(name) + '" loading="lazy" onerror="this.style.display=\'none\'"></div>';
+                    html += '<div class="icon-circle"><img src="' + escapeHTML(iconWebp(iconSrc)) +
+                            '" data-fallback="' + escapeHTML(iconSrc) + '" alt="' + escapeHTML(name) +
+                            '" loading="lazy" onerror="taikoIconFallback(this)"></div>';
                 }
                 html += '</div></div>';
                 return html;
             }
+
+            /* 图标先试压缩后的 .webp（tools/compress-icons.py 生成），
+               没有就回落到 data.xlsx 里写的那个原始文件名 ——
+               这样压过的和刚丢进来还没压的图标都能显示。 */
+            function iconWebp(src) {
+                return src.replace(/\.[^.\/]+$/, '') + '.webp';
+            }
+            function taikoIconFallback(img) {
+                const orig = img.getAttribute('data-fallback');
+                img.onerror = null;
+                if (orig && img.getAttribute('src') !== orig) img.src = orig;
+                else img.style.display = 'none';
+            }
+            window.taikoIconFallback = taikoIconFallback;
 
             function createNameHTML(linkData) {
                 const hasLink = linkData && linkData.url;
@@ -1394,6 +1555,7 @@
             let swipeGuardUntil = 0;               // 刚滑完的一小段时间内忽略 click，避免误触挂牌
             let modalPaging = false;               // 正在推入/推出，动画中新的翻页请求先排队
             let modalPending = 0;                  // 连按攒下的翻页请求，符号表示方向
+            let introToken = 0;                    // 预览图异步加载的令牌，翻页后丢弃旧结果
             let modalClosing = false;              // 正在关闭
             let modalTimer = 0;                    // 翻页/关闭用的定时器
 
@@ -1487,27 +1649,178 @@
                 modal.style.setProperty('--push-out', (-inPx).toFixed(2) + 'px');
             }
 
-            function createModalCardHTML() {
-                let html = '';
-                for (let i = 0; i < MODAL_CARD_COUNT; i++) {
-                    html += '<div class="site-modal-card">' +
-                            '<div class="site-modal-shot" data-shot="' + (i + 1) + '"></div>' +
-                            '</div>';
-                }
-                return html;
+
+            /* ---------- 图片预览部分 ----------
+               img/intro/<网站名>/ 下放 1.png ~ 3.png（16:9 截图），可选一份 desc.txt，
+               第 i 行就是第 i 张图的备注。三者合起来构成
+               title.png（顶部备注条）+ GaugeCondition_Bar.png（卡片框）+ 预览图。
+               以图片为准：先探第 1 张，没有就说明这个网站没有预览图；
+               有再往后探第 2、3 张和 desc.txt（备注文件可以没有）。
+               扩展名按 .webp -> .png 依次试，这样跑过 tools/compress-intro.py
+               和没跑过的文件夹都能显示。
+               探测用 new Image()，顺便让浏览器把图缓存住，后面设成背景图就是瞬开。 */
+            const introCache = {};        // 网站名 -> Promise<{ shots: [...], descs: [...] }>
+            const introDone = {};         // 网站名 -> 已探测完的结果，用于同步建卡
+            const INTRO_EXTS = ['webp', 'png'];
+
+            /* 同一序号依次试各种扩展名，返回第一个能加载的 URL */
+            function probeImage(dir, index) {
+                return new Promise(function(resolve) {
+                    let i = 0;
+                    function next() {
+                        if (i >= INTRO_EXTS.length) { resolve(null); return; }
+                        const url = dir + index + '.' + INTRO_EXTS[i++];
+                        const img = new Image();
+                        img.onload = function() { resolve(url); };
+                        img.onerror = next;
+                        img.src = url;
+                    }
+                    next();
+                });
             }
+
+            function loadIntro(name) {
+                if (Object.prototype.hasOwnProperty.call(introCache, name)) return introCache[name];
+                const dir = 'img/intro/' + encodeURIComponent(name) + '/';
+                const job = probeImage(dir, 1).then(function(first) {
+                    if (!first) return { shots: [], descs: [] };   // 没这个文件夹
+                    return Promise.all([
+                        probeImage(dir, 2),
+                        probeImage(dir, 3),
+                        fetch(dir + 'desc.txt')
+                            .then(function(r) { return r.ok ? r.text() : ''; })
+                            .catch(function() { return ''; })
+                    ]).then(function(res) {
+                        const shots = [first, res[0], res[1]].filter(Boolean);
+                        const descs = String(res[2]).split(/\r?\n/)
+                            .map(function(s) { return s.trim(); })
+                            .filter(function(s) { return s.length > 0; })
+                            .slice(0, MODAL_CARD_COUNT);
+                        return { shots: shots, descs: descs };
+                    });
+                }).catch(function() { return { shots: [], descs: [] }; });
+                introCache[name] = job;      // 缓存 Promise，并发调用也只会探一次
+                /* 另存一份探测结果：翻回来时能同步建卡，
+                   否则每次翻页都要等一个微任务，卡片会晚一帧出现。 */
+                job.then(function(info) { introDone[name] = info; });
+                return job;
+            }
+
+            const MODAL_CARD_HTML =
+                '<div class="site-modal-card">' +
+                    '<div class="site-modal-shot"></div>' +
+                    '<div class="site-modal-card-title"><span></span></div>' +
+                '</div>';
+            /* 没有备注：不用卡框也不用备注条，图片直接铺满 + 描边 */
+            const MODAL_CARD_PLAIN_HTML =
+                '<div class="site-modal-card plain">' +
+                    '<div class="site-modal-shot"></div>' +
+                '</div>';
+
+            /* 按实际张数建卡并填内容 —— 有几张图就几张卡，不带图的卡不建 */
+            function renderIntroCards(cardsEl, info) {
+                const n = Math.min(info.shots.length, MODAL_CARD_COUNT);
+                if (!n) {
+                    /* 一张图都没有：卡位留空，但"网页速览"照样展示 */
+                    cardsEl.innerHTML = '';
+                    return;
+                }
+                /* 有备注的走卡框 + title.png 备注条；没备注的直接图片铺满 + 描边 */
+                let html = '';
+                const caps = [];
+                for (let i = 0; i < n; i++) {
+                    const cap = info.descs[i] || '';
+                    caps.push(cap);
+                    html += cap ? MODAL_CARD_HTML : MODAL_CARD_PLAIN_HTML;
+                }
+                cardsEl.innerHTML = html;
+                const cardEls = cardsEl.querySelectorAll('.site-modal-card');
+                for (let i = 0; i < n; i++) {
+                    const shot = cardEls[i].querySelector('.site-modal-shot');
+                    const label = cardEls[i].querySelector('.site-modal-card-title span');
+                    const url = info.shots[i];
+                    if (shot) {
+                        shot.style.backgroundImage = 'url("' + url + '")';
+                        /* 放大预览要用原图 URL 和备注，挂在卡位上 */
+                        shot.dataset.full = url;
+                        shot.dataset.cap = caps[i];
+                    }
+                    if (label) label.textContent = caps[i];
+                }
+            }
+
+            /* 把预览图填进卡位。探测过的网站同步建卡（翻页时不闪），
+               没探测过的先清空，等结果回来再建。 */
+            function applyIntro(cardsEl, name) {
+                if (!cardsEl) return;
+                const token = ++introToken;
+                if (Object.prototype.hasOwnProperty.call(introDone, name)) {
+                    renderIntroCards(cardsEl, introDone[name]);
+                    return;
+                }
+                cardsEl.innerHTML = '';
+                loadIntro(name).then(function(info) {
+                    /* 期间用户已经翻到别的网站了，就别再往上贴 */
+                    if (token !== introToken) return;
+                    renderIntroCards(cardsEl, info);
+                });
+            }
+
+            /* ---------- 点预览图放大 ---------- */
+            function openIntroZoom(url, caption) {
+                const box = document.getElementById('introLightbox');
+                const img = document.getElementById('introLightboxImg');
+                const cap = document.getElementById('introLightboxCap');
+                if (!box || !img || !url) return;
+                img.src = url;
+                img.alt = caption || '预览图';
+                if (cap) cap.textContent = caption || '';
+                box.hidden = false;
+                void box.offsetHeight;
+                box.classList.add('show');
+            }
+
+            function closeIntroZoom() {
+                const box = document.getElementById('introLightbox');
+                if (!box || box.hidden) return false;
+                box.classList.remove('show');
+                window.setTimeout(function() {
+                    /* 关闭动画途中又被打开了就别收 */
+                    if (!box.classList.contains('show')) {
+                        box.hidden = true;
+                        const img = document.getElementById('introLightboxImg');
+                        if (img) img.src = '';
+                    }
+                }, 200);
+                return true;
+            }
+
+            (function initIntroZoom() {
+                const box = document.getElementById('introLightbox');
+                const cardsEl = document.getElementById('siteModalCards');
+                if (box) box.addEventListener('click', function() { closeIntroZoom(); });
+                if (!cardsEl) return;
+                cardsEl.addEventListener('click', function(e) {
+                    const shot = e.target.closest ? e.target.closest('.site-modal-shot') : null;
+                    if (!shot || !shot.dataset.full) return;
+                    e.stopPropagation();
+                    openIntroZoom(shot.dataset.full, shot.dataset.cap);
+                });
+            })();
 
             function prettyHost(url) {
                 try { return new URL(url, window.location.href).hostname; } catch (e) { return url; }
             }
 
-            /* 翻页顺序 = 当前选中的那张工作表里链接的排列顺序（与网格渲染顺序一致） */
+            /* 翻页顺序 = 当前选中的那张工作表里链接的排列顺序（与网格渲染顺序一致）。
+               简略页里没能在完整表里找到同名的条目没有网址，跳过它们，
+               免得弹窗翻出一张空白速览 */
             function activeSheetLinkIds() {
                 const ids = [];
                 const sheet = sheets[activeSheet];
                 if (sheet) {
                     sheet.sections.forEach(function(section) {
-                        section.links.forEach(function(link) { ids.push(link.id); });
+                        section.links.forEach(function(link) { if (link.url) ids.push(link.id); });
                     });
                 }
                 return ids;
@@ -1547,8 +1860,9 @@
                 const plate = document.getElementById('siteModalPlate');
                 if (plate) {
                     plate.innerHTML = iconSrc
-                        ? '<div class="icon-circle"><img src="' + escapeHTML(iconSrc) + '" alt="' +
-                          escapeHTML(name) + '" onerror="this.style.display=\'none\'"></div>'
+                        ? '<div class="icon-circle"><img src="' + escapeHTML(iconWebp(iconSrc)) +
+                          '" data-fallback="' + escapeHTML(iconSrc) + '" alt="' +
+                          escapeHTML(name) + '" onerror="taikoIconFallback(this)"></div>'
                         : '';
                 }
 
@@ -1568,7 +1882,7 @@
                 if (tab) tab.textContent = MODAL_TAB_TEXT;
 
                 const cards = document.getElementById('siteModalCards');
-                if (cards) cards.innerHTML = createModalCardHTML();
+                if (cards) applyIntro(cards, name);   // 按实际张数建卡并填图
 
                 updateModalArrows();
             }
@@ -1707,6 +2021,12 @@
             function closeSiteModal() {
                 const modal = modalElement();
                 if (!modal || modal.hidden || modalClosing) return;
+                /* 放大预览还开着就一起收掉，免得弹窗没了它单独留在屏幕上 */
+                const lightbox = document.getElementById('introLightbox');
+                if (lightbox && !lightbox.hidden) {
+                    lightbox.classList.remove('show');
+                    lightbox.hidden = true;
+                }
                 modalClosing = true;
                 window.clearTimeout(modalTimer);
                 modalPaging = false;
@@ -1814,7 +2134,12 @@
             }
 
             document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' || e.key === 'Esc') { closeSiteModal(); return; }
+                if (e.key === 'Escape' || e.key === 'Esc') {
+                    /* 放大预览开着的时候，Esc 只收它，别顺手把整个弹窗也关了 */
+                    if (closeIntroZoom()) return;
+                    closeSiteModal();
+                    return;
+                }
                 const modal = modalElement();
                 if (!modal || modal.hidden) return;
                 if (e.key === 'ArrowLeft') { e.preventDefault(); stepSiteModal(-1); }
@@ -1829,29 +2154,75 @@
                 return text.trim().toLowerCase() === 'linetitle';
             }
 
-            /* 把一张工作表切成若干分区：每个分区 = 一个行标题（可为空）+ 该标题下的链接。
+            /* 表头名 -> 关键字。主页是完整五列，分支页只有 name + style 两列，
+               所以按表头认列，而不是写死 0..4 的位置。 */
+            const FIELD_ALIASES = {
+                name: ['name', 'title', '名称', '名字', '站点'],
+                url: ['url', 'link', '链接', '网址', '地址'],
+                desc: ['desc', 'description', '简介', '说明', '备注'],
+                icon: ['icon', '图标'],
+                style: ['style', '样式']
+            };
+
+            /* 按列下标取单元格文本；该表没有这一列（-1）或越界时返回空串 */
+            function cellAt(row, index) {
+                if (!row || index < 0 || index >= row.length) return '';
+                const value = row[index];
+                if (value === null || value === undefined) return '';
+                return (typeof value === 'string') ? value : String(value);
+            }
+
+            /* 读出第 1 行表头对应的列下标；认不出 name 列时退回旧的位置约定 */
+            function mapColumns(headerRow) {
+                const fallback = { name: 0, url: 1, desc: 2, icon: 3, style: 4 };
+                if (!headerRow || !headerRow.length) return fallback;
+                const found = {};
+                headerRow.forEach(function(cell, index) {
+                    const text = (cell === null || cell === undefined) ? '' : String(cell).trim().toLowerCase();
+                    if (!text) return;
+                    Object.keys(FIELD_ALIASES).forEach(function(field) {
+                        if (found[field] === undefined && FIELD_ALIASES[field].indexOf(text) >= 0) {
+                            found[field] = index;
+                        }
+                    });
+                });
+                if (found.name === undefined) return fallback;      // 不是表头行，按旧约定
+                const map = { name: found.name };
+                ['url', 'desc', 'icon', 'style'].forEach(function(field) {
+                    map[field] = (found[field] === undefined) ? -1 : found[field];   // -1 = 该表没有这一列
+                });
+                return map;
+            }
+
+            /* 把一张工作表切成若干分区：每个分区 = 一个行标题（可为空）+ 该标题下的条目。
+               列位置由表头决定，所以"只写名字的简略表"和"五列完整表"都能解析。
                遇到 linetitle 行就强制收尾当前行，并开一个新分区。 */
             function parseSections(rows) {
                 const sections = [];
+                const columns = mapColumns(rows.length ? rows[0] : null);   // 第 1 行为表头
                 let current = { title: null, links: [] };
                 sections.push(current);
-                for (let i = 1; i < rows.length; i++) {          // 第 1 行为表头
+                for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || row.length === 0) continue;
-                    const name = (row[0] === null || row[0] === undefined) ? '' : String(row[0]);
-                    const url = (row[1] === null || row[1] === undefined) ? '' : String(row[1]);
-                    if (isLineTitleRow(row[4])) {                // 行标题：同时是强制换行标记
-                        current = { title: name.trim(), links: [] };
+                    const name = cellAt(row, columns.name).trim();
+                    const styleText = cellAt(row, columns.style);
+                    if (isLineTitleRow(styleText)) {                // 行标题：同时是强制换行标记
+                        current = { title: name, links: [] };
                         sections.push(current);
                         continue;
                     }
-                    if (!name && !url) continue;                 // 跳过空行
+                    const url = cellAt(row, columns.url).trim();
+                    if (!name && !url) continue;                     // 跳过空行
+                    const styleNum = parseInt(styleText, 10);
+                    /* style 留空记成 null（简略页就是这样），随后由完整记录补上；
+                       仍然补不到的话，渲染时按列号循环取底板样式 */
                     current.links.push(registerLink({
                         name: name,
                         url: url,
-                        desc: row[2] || '',
-                        icon: row[3] || '',
-                        style: parseInt(row[4]) || 1
+                        desc: cellAt(row, columns.desc),
+                        icon: cellAt(row, columns.icon),
+                        style: isNaN(styleNum) ? null : styleNum
                     }));
                 }
                 return sections.filter(function(section) {
@@ -1859,30 +2230,57 @@
                 });
             }
 
-            /* 万一 vendor/ 那份丢了（比如只把 index.html 拷走），再去 CDN 兜一次底。
-               拿不到就返回 false，交给下面给出准确的报错，而不是让 XLSX is not defined 蒙混过去。 */
-            const XLSX_CDN_FALLBACK = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-            let xlsxFallbackPromise = null;
-            function ensureXLSX() {
-                if (typeof XLSX !== 'undefined') return Promise.resolve(true);
-                if (xlsxFallbackPromise) return xlsxFallbackPromise;
-                xlsxFallbackPromise = new Promise(function(resolve) {
-                    const s = document.createElement('script');
-                    s.src = XLSX_CDN_FALLBACK;
-                    s.onload = function() { resolve(typeof XLSX !== 'undefined'); };
-                    s.onerror = function() { resolve(false); };
-                    document.head.appendChild(s);
+            /* 分支页（自制谱专区 / 家用鼓选购 这种）只写站点名字和行标题，
+               url / desc / icon / style 一律留空，靠名字到"完整记录"里补齐。
+               完整记录 = 任意工作表里填了 url 的那些行，也就是主页那份总表。 */
+            function resolveBriefEntries(parsedSheets) {
+                const master = {};
+                parsedSheets.forEach(function(sheet) {
+                    sheet.sections.forEach(function(section) {
+                        section.links.forEach(function(item) {
+                            if (item.url && !master[item.name]) master[item.name] = item;
+                        });
+                    });
                 });
-                return xlsxFallbackPromise;
+                const missing = [];
+                parsedSheets.forEach(function(sheet) {
+                    sheet.sections.forEach(function(section) {
+                        section.links.forEach(function(item) {
+                            if (item.url) return;                    // 本来就是完整记录
+                            const found = master[item.name];
+                            if (!found) {
+                                missing.push(sheet.name + ' → ' + item.name);
+                                return;
+                            }
+                            item.url = found.url;
+                            item.desc = item.desc || found.desc;
+                            item.icon = item.icon || found.icon;
+                            item.style = item.style || found.style;
+                        });
+                    });
+                });
+                if (missing.length) {
+                    console.warn('[TaikoNavigation] 下面这些简略条目在完整表里找不到同名站点，' +
+                                 '只会显示暗置底板，请核对名字：\n  ' + missing.join('\n  '));
+                }
+            }
+
+            /* 解析库只用本地那一份（vendor/xlsx.full.min.js，来自 npm 包 xlsx 的 dist）。
+               以前这里会往 cdn.jsdelivr.net 兜一次底，现在全部去掉：
+               整个页面不再有任何外部请求，离线 / 内网 / CDN 抖动都不影响加载。
+               没加载出来就返回 false，交给下面给出准确的报错，
+               而不是让 XLSX is not defined 蒙混过去。 */
+            function ensureXLSX() {
+                return typeof XLSX !== 'undefined';
             }
 
             /* 读取 data.xlsx 的全部工作表 */
             (async function loadData() {
                 let failure = null;
                 try {
-                    if (!(await ensureXLSX())) {
-                        failure = '解析库没加载出来，读不了 xlsx。请确认 vendor/xlsx.full.min.js 还在，' +
-                                  '或者能连上 cdn.jsdelivr.net。';
+                    if (!ensureXLSX()) {
+                        failure = '解析库没加载出来，读不了 xlsx。请确认 vendor/xlsx.full.min.js 还在' +
+                                  '（它就是 npm 包 xlsx 的 dist 文件）。';
                     } else {
                         const response = await fetch('data.xlsx');
                         if (!response.ok) {
@@ -1891,10 +2289,13 @@
                         } else {
                             const arrayBuffer = await response.arrayBuffer();
                             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-                            workbook.SheetNames.forEach(function(sheetName) {
+                            const parsed = workbook.SheetNames.map(function(sheetName) {
                                 const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
-                                sheets.push({ name: sheetName, sections: parseSections(rows) });
+                                return { name: sheetName, sections: parseSections(rows) };
                             });
+                            /* 先全部解析完，再给简略页补齐完整信息，最后才挂进 sheets */
+                            resolveBriefEntries(parsed);
+                            parsed.forEach(function(sheet) { sheets.push(sheet); });
                             const fromHash = sheets.findIndex(function(sheet) { return sheet.name === currentHashName(); });
                             activeSheet = fromHash >= 0 ? fromHash : 0;
                         }

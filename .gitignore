@@ -1,0 +1,17 @@
+# Excel / WPS 打开表格时产生的锁文件，不属于项目内容
+~$*.xlsx
+
+# 本地预览、调试时生成的临时产物
+_preview/
+_probe/
+_*.py
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# 系统
+.DS_Store
+Thumbs.db
+desktop.ini
