@@ -90,3 +90,30 @@ python -m http.server 8000
   点预览图放大、手机上左右滑动翻页。
 - `Ctrl + Shift + P`（或网址后加 `?icondebug=1`）打开图标微调面板，
   里面还有弹窗翻页动画的速度倍率，会记在 `localStorage`。
+
+## 日常同步到 GitHub
+
+`D:\Downloads\TaikoNavigation` 就是一个普通的 git 工作区，推上去的流程很短：
+
+```bash
+cd D:\Downloads\TaikoNavigation
+python tools/compress-intro.py     # 有新素材就先压一遍
+python tools/compress-icons.py
+git add -A                         # 新增、修改、删除一次算清，不用手工删旧文件
+git commit -m "更新素材"
+git push
+```
+
+`git add -A` 会把"本地已经不存在、但仓库里还有"的文件自动标记为删除，
+所以压缩脚本删掉的那些旧 png 不需要你手动去 GitHub 上一个个删。
+
+### 两个环境相关的坑
+
+- **代理**：本机的系统代理在 `127.0.0.1:7000`。PowerShell / 浏览器会自动走它，
+  但 **git 不读系统的代理设置**，直连 `github.com:443` 会超时。
+  这个仓库的 `.git/config` 里已经写好了 `http.proxy`，所以在这里 `git push` 正常。
+  哪天不用代理了，执行 `git config --local --unset http.proxy` 去掉即可。
+- **目录属主**：这个目录的属主 SID 与当前登录用户不同，git 会报
+  `detected dubious ownership`。已经加过例外
+  （`git config --global --add safe.directory D:/Downloads/TaikoNavigation`），
+  换机器后如果又报，照提示再加一次就行。
